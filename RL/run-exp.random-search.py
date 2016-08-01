@@ -24,7 +24,7 @@ def main():
                                  'Walker2d', 'Ant', 'Humanoid', 'HumanoidStandup'],
                         help='(Every task is currently v1.)')
     parser.add_argument('--alg', type=str, choices=all_algs)
-    parser.add_argument('--nSamples', type=int, default=40)
+    parser.add_argument('--nSamples', type=int, default=50)
     parser.add_argument('--save', type=str)
     parser.add_argument('--overwrite', action='store_true')
 
