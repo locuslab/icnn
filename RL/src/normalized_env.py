@@ -1,3 +1,6 @@
+# Code from Repo SimonRamstedt/ddpg
+# Heavily modified
+
 import gym
 import numpy as np
 import tensorflow as tf

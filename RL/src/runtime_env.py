@@ -1,3 +1,6 @@
+# Code from Repo SimonRamstedt/ddpg
+# Heavily modified
+
 import atexit
 import json
 import os
