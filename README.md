@@ -73,5 +73,15 @@ Tensorboard summary is on by default. Use `--summary False` to turn it off. Tens
 
 Use log.txt to log testing total rewards. Each line is `[training_timesteps]	[testing_episode_total_reward]`. 
 
+**Settings**
+
+Here are the parameters to reproduce experiments. 
+
+|Task|DDPG|NAF|ICNN|
+|:--:|:--:|:--:|:--:|
+|InvertedPendulum|reward_k=0.3|reward_k=0.2|reward_k=0.3, lrelu=0|
+|Reacher|Default|Default|lrelu=0|
+|HalfCheetah|Default|use batch normalization (not available)|reward_k=0.3, lrelu=0|
+
 ###Acknowledgement
 Part of the code is modified from Repo [SimonRamstedt/ddpg](https://github.com/SimonRamstedt/ddpg). 
