@@ -41,4 +41,37 @@ optimization on the Olivetti faces dataset.
 
 ## Reinforcement Learning
 
-TODO
+![image](/RL/misc/pendulum.gif)
+![image](/RL/misc/reacher.gif)
+![image](/RL/misc/halfcheetah.gif)
+
+###Dependency
+
+- Tensorflow r10
+- OpenAI Gym + Mujoco
+- numpy
+
+###Set Up
+**Training**
+
+Example
+
+```
+python main.py --model ICNN --env InvertedPendulum-v1 --outdir output \
+  --total 100000 --train 100 --test 1 --tfseed 0 --npseed 0 --gymseed 0
+```
+
+Use `--model` to select a model from `[DDPG, NAF, ICNN]`.
+
+Use `--env` to select a task. [TaskList](https://gym.openai.com/envs#mujoco)
+
+Check all parameters using `python main.py -h`.
+
+**Output**
+
+Tensorboard summary is on by default. Use `--summary False` to turn it off. Tensorboard summary includes (1) average Q value, (2) loss function, and (3) average reward for each training minibatch. 
+
+Use log.txt to log testing total rewards. Each line is `[training_timesteps]	[testing_episode_total_reward]`. 
+
+###Acknowledgement
+Part of the code is modified from Repo [SimonRamstedt/ddpg](https://github.com/SimonRamstedt/ddpg). 
