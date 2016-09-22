@@ -57,7 +57,7 @@ optimization on the Olivetti faces dataset.
 Example
 
 ```
-python main.py --model ICNN --env InvertedPendulum-v1 --outdir output \
+python src/main.py --model ICNN --env InvertedPendulum-v1 --outdir output \
   --total 100000 --train 100 --test 1 --tfseed 0 --npseed 0 --gymseed 0
 ```
 
@@ -75,13 +75,8 @@ Use log.txt to log testing total rewards. Each line is `[training_timesteps]	[te
 
 **Settings**
 
-Here are the parameters to reproduce experiments. 
+To reproduce experiments, you can use [scripts](/RL/scripts/). Please run scripts in `RL` directory use `bash script/*.sh`. Outputs and figure will be saved at `RL/output/*`. 
 
-|Task|DDPG|NAF|ICNN|
-|:--:|:--:|:--:|:--:|
-|InvertedPendulum|reward_k=0.3|reward_k=0.2|reward_k=0.3, lrelu=0|
-|Reacher|Default|Default|lrelu=0|
-|HalfCheetah|Default|use batch normalization (not available)|reward_k=0.3, lrelu=0|
 
 ###Acknowledgement
 Part of the code is modified from Repo [SimonRamstedt/ddpg](https://github.com/SimonRamstedt/ddpg). 
