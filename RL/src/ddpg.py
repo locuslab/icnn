@@ -134,7 +134,6 @@ class Agent:
         action = self._act_test(obs) if test else self._act_expl(obs)
         action = np.clip(action, -1, 1)
         self.action = np.atleast_1d(np.squeeze(action, axis=0))  # TODO: remove this hack
-        print self.action
         return self.action
 
     def observe(self, rew, term, obs2, test=False):

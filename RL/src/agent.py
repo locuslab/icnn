@@ -18,7 +18,7 @@ flags.DEFINE_float('rate', 0.001, 'learning rate')
 flags.DEFINE_float('prate', 0.0001, 'policy net learning rate (only for DDPG)')
 flags.DEFINE_float('outheta', 0.15, 'noise theta')
 flags.DEFINE_float('ousigma', 0.1, 'noise sigma')
-flags.DEFINE_float('lrelu', 0.3, 'leak relu rate')
+flags.DEFINE_float('lrelu', 0.01, 'leak relu rate')
 
 flags.DEFINE_integer('thread', 1, 'tensorflow threads')
 
