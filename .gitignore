@@ -1,1 +1,7 @@
+data
+
 *.pyc
+*.pdf
+*.png
+
+!images/*
