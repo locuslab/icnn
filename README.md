@@ -56,6 +56,9 @@ synthetic-cls
 
 ## Multi-Label Classification
 
+(These are currently slightly inconsistent with our paper
+and we plan on synchronizing our paper and code.)
+
 ```
 multi-label-cls
 ├── bibsonomy.py - Loads the Bibsonomy datasets.
