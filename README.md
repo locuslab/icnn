@@ -35,6 +35,8 @@ please consider citing our paper.
 ```
 lib
 └── bundle_entropy.py - Optimize a function over the [0,1] box with the bundle entropy method.
+                        (Development is still in-progress and we are still
+                        fixing some numerical issues here.)
 ```
 
 ## Synthetic Classification

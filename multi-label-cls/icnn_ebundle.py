@@ -323,15 +323,15 @@ class Model:
                 return e, ge
 
             y0 = np.full(yBatch.shape, 0.5)
-            # try:
-            yN, G, h, lam, ys, nIters = bundle_entropy.solveBatch(fg, y0, nIter=10)
-            # except:
-            #     print("Warning: Exception in bundle_entropy.solveBatch")
-            #     nErrors += 1
-            #     if nErrors > 10:
-            #         print("More than 10 errors raised, quitting")
-            #         sys.exit-(1-)
-            #     continue
+            try:
+                yN, G, h, lam, ys, nIters = bundle_entropy.solveBatch(fg, y0, nIter=10)
+            except:
+                print("Warning: Exception in bundle_entropy.solveBatch")
+                nErrors += 1
+                if nErrors > 10:
+                    print("More than 10 errors raised, quitting")
+                    sys.exit-(1-)
+                continue
 
             nActive = [len(Gi) for Gi in G]
             l_yN = crossEntr(yBatch, yN)
