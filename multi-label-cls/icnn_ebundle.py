@@ -38,10 +38,10 @@ def main():
     # parser.add_argument('--testBatchSz', type=int, default=2048)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--layerSizes', type=int, nargs='+', default=[600, 600])
-    parser.add_argument('--noncvx', action='store_true')
     parser.add_argument('--dataset', type=str, choices=['bibtex', 'bookmarks', 'delicious'],
                         default='bibtex')
     parser.add_argument('--valSplit', type=float, default=0)
+    parser.add_argument('--inference_nIter', type=int, default=10)
 
     args = parser.parse_args()
 
@@ -116,37 +116,6 @@ def variable_summaries(var, name=None):
         tf.scalar_summary('min/' + name, tf.reduce_min(var))
         tf.histogram_summary(name, var)
 
-def getW(inSz, outSz, name, norm=True):
-    with tf.variable_scope("W"):
-        stdev = 1./np.sqrt(outSz)
-        v = tf.get_variable(name, (inSz, outSz),
-                            initializer=tf.random_uniform_initializer(-stdev, stdev))
-        variable_summaries(v)
-        if norm:
-            v_sqnorm = tf.reduce_sum(tf.square(v), 0)
-            g = tf.get_variable(name+'.g', (outSz), initializer=tf.constant_initializer(1.0))
-            return tf.matmul(v, tf.diag(tf.div(g, v_sqnorm)))
-        else:
-            return v
-
-def getW_pos(inSz, outSz, name, norm=True):
-    with tf.variable_scope("W_pos"):
-        stdev = 1./np.sqrt(outSz)
-        v = tf.get_variable(name, (inSz, outSz),
-                            initializer=tf.random_uniform_initializer(0, stdev))
-        variable_summaries(v)
-        if norm:
-            v_sqnorm = tf.reduce_sum(tf.square(v), 0)
-            g = tf.get_variable(name+'.g', (outSz), initializer=tf.constant_initializer(1.0))
-            return tf.matmul(v, tf.diag(tf.div(g, v_sqnorm)))
-        else:
-            return v
-
-def getB(outSz, name='b'):
-    v = tf.get_variable(name, outSz, initializer=tf.constant_initializer(0.0))
-    variable_summaries(v)
-    return v
-
 class Model:
     def __init__(self, nFeatures, nLabels, layerSzs, sess):
         self.nFeatures = nFeatures
@@ -189,14 +158,14 @@ class Model:
         for g,v in self.gv_:
             variable_summaries(g, 'gradients/'+v.name)
 
-        self.l_yN_ = tf.placeholder(tf.float32, name='l_yN')
-        tf.scalar_summary('crossEntr', self.l_yN_)
+        # self.l_yN_ = tf.placeholder(tf.float32, name='l_yN')
+        # tf.scalar_summary('crossEntr', self.l_yN_)
 
-        self.nBundleIter_ = tf.placeholder(tf.float32, [None], name='nBundleIter')
-        variable_summaries(self.nBundleIter_)
+        # self.nBundleIter_ = tf.placeholder(tf.float32, [None], name='nBundleIter')
+        # variable_summaries(self.nBundleIter_)
 
-        self.nActive_ = tf.placeholder(tf.float32, [None], name='nActive')
-        variable_summaries(self.nActive_)
+        # self.nActive_ = tf.placeholder(tf.float32, [None], name='nActive')
+        # variable_summaries(self.nActive_)
 
         self.merged = tf.merge_all_summaries()
         self.saver = tf.train.Saver(max_to_keep=1)
@@ -232,8 +201,7 @@ class Model:
         with open(metaP, 'w') as f:
             json.dump(meta, f, indent=2)
 
-        if not args.noncvx:
-            self.sess.run(self.makeCvx)
+        self.sess.run(self.makeCvx)
 
         bestTestF1 = 0.0
         nErrors = 0
@@ -254,7 +222,8 @@ class Model:
 
             y0 = np.full(yBatch.shape, 0.5)
             try:
-                yN, G, h, lam, ys, nIters = bundle_entropy.solveBatch(fg, y0, nIter=10)
+                yN, G, h, lam, ys, nIters = bundle_entropy.solveBatch(
+                    fg, y0, nIter=args.inference_nIter)
             except:
                 print("Warning: Exception in bundle_entropy.solveBatch")
                 nErrors += 1
@@ -268,12 +237,14 @@ class Model:
             trainF1 = util.macroF1(yBatch, yN)
 
             fd = self.train_step_fd(args.trainBatchSz, xBatch, yBatch, G, yN, ys, lam)
-            fd[self.l_yN_] = l_yN
-            fd[self.nBundleIter_] = nIters
-            fd[self.nActive_] = nActive
+            # fd[self.l_yN_] = l_yN
+            # fd[self.nBundleIter_] = nIters
+            # fd[self.nActive_] = nActive
             summary, _ = self.sess.run([self.merged, self.train_step], feed_dict=fd)
-            if not args.noncvx and len(self.proj) > 0:
+            if len(self.proj) > 0:
                 self.sess.run(self.proj)
+            else:
+                print("Warning: Not projecting any weights.")
             self.trainWriter.add_summary(summary, i)
 
             trainW.writerow((i, trainF1, l_yN))
@@ -292,7 +263,8 @@ class Model:
                     return e, ge
 
                 y0 = np.full(valY.shape, 0.5)
-                yN, G, h, lam, ys, _ = bundle_entropy.solveBatch(fg, y0, nIter=10)
+                yN, G, h, lam, ys, _ = bundle_entropy.solveBatch(
+                    fg, y0, nIter=args.inference_nIter)
                 testF1 = util.macroF1(valY, yN)
                 l_yN = crossEntr(valY, yN)
                 print(" + testF1: {:0.4f}".format(testF1))
