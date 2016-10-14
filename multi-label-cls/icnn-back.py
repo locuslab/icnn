@@ -27,15 +27,15 @@ def main():
     parser.add_argument('--save', type=str, default='work/icnn')
     parser.add_argument('--nEpoch', type=int, default=100)
     parser.add_argument('--trainBatchSz', type=int, default=128)
-    parser.add_argument('--layerSizes', type=int, nargs='+', default=[600, 600])
+    parser.add_argument('--layerSizes', type=int, nargs='+', default=[600])
     # parser.add_argument('--testBatchSz', type=int, default=2048)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--data', type=str)
     parser.add_argument('--valSplit', type=float, default=0)
     parser.add_argument('--noncvx', action='store_true')
     parser.add_argument('--inference_lr', type=float, default=0.01)
-    parser.add_argument('--inference_momentum', type=float, default=0.5)
-    parser.add_argument('--inference_nIter', type=int, default=10)
+    parser.add_argument('--inference_momentum', type=float, default=0.3)
+    parser.add_argument('--inference_nIter', type=int, default=30)
 
     args = parser.parse_args()
 
@@ -172,7 +172,7 @@ class Model:
 
         meta = {'nTrain': nTrain, 'trainBatchSz': args.trainBatchSz,
                 'nParams': nParams, 'nEpoch': args.nEpoch,
-                'nIter': nIter}
+                'nIter': nIter, 'layerSizes': args.layerSizes}
         metaP = os.path.join(save, 'meta.json')
         with open(metaP, 'w') as f:
             json.dump(meta, f, indent=2)

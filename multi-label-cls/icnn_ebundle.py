@@ -37,7 +37,7 @@ def main():
     parser.add_argument('--trainBatchSz', type=int, default=128)
     # parser.add_argument('--testBatchSz', type=int, default=2048)
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--layerSizes', type=int, nargs='+', default=[600, 600])
+    parser.add_argument('--layerSizes', type=int, nargs='+', default=[600])
     parser.add_argument('--dataset', type=str, choices=['bibtex', 'bookmarks', 'delicious'],
                         default='bibtex')
     parser.add_argument('--valSplit', type=float, default=0)
