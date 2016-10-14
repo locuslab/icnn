@@ -107,6 +107,7 @@ def main():
     print("="*40 + "\n\n")
 
     nIter = int(args.nEpoch*np.ceil(nTrain/args.trainBatchSz))
+    print(nIter)
 
     with tf.variable_scope("FeedForward") as scope:
         for sz in args.layerSizes:
@@ -177,13 +178,13 @@ def main():
             trainW.writerow((i, trainF1, loss))
             trainF.flush()
 
-            if i % np.ceil((nTrain/1.0)/args.trainBatchSz) == 0:
+            if (i+1) % np.ceil((nTrain/1.0)/args.trainBatchSz) == 0:
                 print("=== Iteration {} (Epoch {:.2f}) ===".format(
                     i, i/np.ceil(nTrain/args.trainBatchSz)))
                 print(" + train F1: {:0.4f}".format(trainF1))
                 print(" + train loss: {:0.2e}".format(loss))
 
-            if i % np.ceil(nTrain/args.trainBatchSz) == 0:
+            if (i+1) % np.ceil(nTrain/args.trainBatchSz) == 0:
                 tflearn.is_training(False)
                 # testF1, testLoss = tfh.trainer.evaluate_flow(sess, [F1_, loss_], testDf)[0]
                 yPred, testLoss = sess.run([yhat_, loss_],
