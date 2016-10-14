@@ -33,6 +33,7 @@ def main():
 
     plotF1(trainDf, testDf, meta, args.workDir)
     plotLoss(trainDf, testDf, meta, args.workDir)
+    plossF1vsLoss(trainDf, testDf, meta, args.workDir)
 
 def getDataSingle(workDir):
     trainF = os.path.join(workDir, 'train.csv')
@@ -107,14 +108,14 @@ def plotF1(trainDf, testDf, meta, workDir):
     trainIters = trainDf['iter'].values
     trainF1s = trainDf['f1'].values
 
-    trainIters = trainIters[N:]*trainBatchSz/nTrain
+    trainIters = trainIters[N:]/np.ceil(nTrain/trainBatchSz)
     trainF1s = [sum(trainF1s[i-N:i])/N for i in range(N, len(trainF1s))]
     plt.plot(trainIters, trainF1s, label='Train')
 
     testIters = testDf['iter'].values
     testF1s = testDf['f1'].values
     if len(testF1s) > 0:
-        plt.plot(testIters*trainBatchSz/nTrain, testF1s, label='Test')
+        plt.plot(testIters/np.ceil(nTrain/trainBatchSz), testF1s, label='Test')
     # trainP = testDf['f1'].plot(ax=ax)
     plt.xlabel("Epoch")
     plt.ylabel("F1")
@@ -127,6 +128,33 @@ def plotF1(trainDf, testDf, meta, workDir):
     plt.legend()
     for ext in ['pdf', 'png']:
         f = os.path.join(workDir, "f1s."+ext)
+        fig.savefig(f)
+        print("Created {}".format(f))
+
+
+def plossF1vsLoss(trainDf, testDf, meta, workDir):
+    nTrain = meta['nTrain']
+    trainBatchSz = meta['trainBatchSz']
+    N = math.ceil(nTrain/trainBatchSz)
+
+    fig, ax = plt.subplots(1, 1)
+    # fig.tight_layout()
+    trainIters = trainDf['iter'].values
+    trainLoss = trainDf['loss'].values
+    trainIters = trainIters[N:]
+    trainLoss = np.array([sum(trainLoss[i-N:i])/N for i in range(N, len(trainLoss))])
+    testIters = testDf['iter'].values[1:]
+    testF1s = testDf['f1'].values
+    trainLoss = trainLoss[testIters-N]
+    testF1s = testF1s[1:]
+    # print(testF1s[np.argmin(trainLoss)])
+    plt.scatter(trainLoss, testF1s, color='k')
+    plt.xlabel("Rolling Train Loss")
+    plt.ylabel("Test F1")
+    ax.set_xscale('log')
+    plt.xlim(xmin=5e-4)
+    for ext in ['pdf', 'png']:
+        f = os.path.join(workDir, "test-f1s-train-loss."+ext)
         fig.savefig(f)
         print("Created {}".format(f))
 
@@ -144,7 +172,7 @@ def plotLoss(trainDf, testDf, meta, workDir):
     trainIters = trainDf['iter'].values
     trainLoss = trainDf['loss'].values
 
-    trainIters = trainIters[N:]*trainBatchSz/nTrain
+    trainIters = trainIters[N:]/np.ceil(nTrain/trainBatchSz)
     trainLoss = [sum(trainLoss[i-N:i])/N for i in range(N, len(trainLoss))]
     plt.plot(trainIters, trainLoss, label='Train')
 
@@ -152,7 +180,7 @@ def plotLoss(trainDf, testDf, meta, workDir):
         testIters = testDf['iter'].values
         testLoss = testDf['loss'].values
         if len(testLoss) > 0:
-            plt.plot(testIters*trainBatchSz/nTrain, testLoss, label='Test')
+            plt.plot(testIters/np.ceil(nTrain/trainBatchSz), testLoss, label='Test')
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     # plt.ylim(ymin=0)
