@@ -7,7 +7,8 @@ flags.DEFINE_integer('runs', 10, 'total runs')
 flags.DEFINE_integer('total', 100000, 'total timesteps')
 flags.DEFINE_integer('train', 1000, 'training timesteps between testing')
 flags.DEFINE_string('data', '.', 'dir contains outputs of DDPG, NAF and ICNN')
-
+flags.DEFINE_float('min', 0, 'y axis min')
+flags.DEFINE_float('max', 1, 'y axis max')
 
 folders = [
     [FLAGS.data + '/DDPG/%d' % i for i in xrange(FLAGS.runs)],
@@ -77,5 +78,6 @@ if __name__ == '__main__':
         line, = plt.plot(X, Ymean, label=name, color=color)
         lines.append(line)
         plt.fill_between(X, Ymin, Ymax, alpha=0.1, color=color)
+    plt.ylim([FLAGS.min, FLAGS.max])
     plt.legend(handles=lines, loc=2)
     plt.savefig(FLAGS.data + '/result.pdf')
