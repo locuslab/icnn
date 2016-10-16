@@ -11,8 +11,7 @@ def logexp1p(x):
     y[~I] = np.log1p(np.exp(x[~I]))
     return y
 
-# @profile
-def proj_newton_logistic(A,b,lam0=None, line_search=False):
+def proj_newton_logistic(A,b,lam0=None, line_search=True):
     """ minimize_{lam>=0, sum(lam)=1} -(A*1 + b)^T*lam + sum(log(1+exp(A^T*lam)))"""
     n = A.shape[0]
     c = np.sum(A,axis=1) + b
@@ -27,7 +26,7 @@ def proj_newton_logistic(A,b,lam0=None, line_search=False):
     else:
         lam = lam0.copy()
 
-    for i in range(100):
+    for i in range(20):
         # compute gradient and Hessian of objective
         ATlam = A.T.dot(lam)
         z = 1/(1+np.exp(-ATlam))
@@ -54,17 +53,16 @@ def proj_newton_logistic(A,b,lam0=None, line_search=False):
         try:
             d[~I] = np.linalg.solve(H0_, -g0[~I])
         except:
-            print('\n=== A\n\n', A)
-            print('\n=== H\n\n', H)
-            print('\n=== H0\n\n', H0)
-            print('\n=== H0_\n\n', H0_)
-            print('\n=== z\n\n', z)
-            print('\n=== iter: {}\n\n'.format(i))
+            # print('\n=== A\n\n', A)
+            # print('\n=== H\n\n', H)
+            # print('\n=== H0\n\n', H0)
+            # print('\n=== H0_\n\n', H0_)
+            # print('\n=== z\n\n', z)
+            # print('\n=== iter: {}\n\n'.format(i))
             break
-
         # line search
-        t = 1.
-        for _ in range(50):
+        t = min(1. / np.max(abs(d)), 1.)
+        for _ in range(10):
             y_n = np.maximum(y + t*d,0)
             y_n[i] = 1
             lam_n = y_n.copy()
@@ -76,7 +74,7 @@ def proj_newton_logistic(A,b,lam0=None, line_search=False):
                         break
                 else:
                     break
-            if t < 1e-10:
+            if max(t * abs(d)) < 1e-10:
                 return lam_n
             t *= BETA
 
@@ -84,49 +82,7 @@ def proj_newton_logistic(A,b,lam0=None, line_search=False):
         lam = lam_n.copy()
     return lam
 
-def solve(fg, initX, nIter=10, callback=None):
-    A = []
-    b = []
-
-    x = initX
-    err = []
-
-    for t in range(nIter):
-        fi, gi = fg(x)
-        Ai = gi
-        bi = fi - np.dot(gi, x)
-        A.append(Ai)
-        b.append(bi)
-
-        print('== Iter ', t)
-        print('  + len A: ', len(A))
-        print('  + fi: {}'.format(fi+np.sum(x*np.log(x)+(1.-x)*np.log(1.-x))))
-        # print('  + x:\n', x)
-        # print('  + gi: {}'.format(gi))
-        # if len(A) > 1:
-        #     print('  + A0-A1: ', np.linalg.norm(A[0]-A[1]))
-            # print('A0\n', A[0])
-            # print('A1\n', A[1])
-            # sys.exit(-1)
-
-        if callback is not None:
-            callback(t, fi, x)
-
-        if len(A) > 1:
-            lam = proj_newton_logistic(np.array(A), np.array(b), None)
-            print('  + lam: {}'.format(lam))
-            x = 1/(1+np.exp(np.array(A).T.dot(lam)))
-        else:
-            lam = np.array([1])
-            x = 1/(1+np.exp(A[0]))
-
-
-        A = [y for i,y in enumerate(A) if lam[i] > 0]
-        b = [y for i,y in enumerate(b) if lam[i] > 0]
-
-    return x
-
-def solveBatch(fg, initXs, nIter=10, callback=None):
+def solveBatch(fg, initXs, nIter=5, callback=None):
     bsize = initXs.shape[0]
     A = [[] for i in range(bsize)]
     b = [[] for i in range(bsize)]
@@ -137,6 +93,9 @@ def solveBatch(fg, initXs, nIter=10, callback=None):
 
     finished = []
     nIters = [nIter]*bsize
+
+    finished = set()
+
     for t in range(nIter):
         fi, gi = fg(x)
         Ai = gi
@@ -152,21 +111,19 @@ def solveBatch(fg, initXs, nIter=10, callback=None):
             b[u].append(bi[u])
             xs[u].append(np.copy(x[u]))
 
-            if np.linalg.matrix_rank(np.array(A[u])) < len(A[u]):
-                del(A[u][-1])
-                del(b[u][-1])
-                del(xs[u][-1])
-                finished.append(u)
-                nIters[u] = t-1
-                continue
-
+            prev_x = x[u].copy()
             if len(A[u]) > 1:
                 lam[u] = proj_newton_logistic(np.array(A[u]), np.array(b[u]), None)
                 x[u] = 1/(1+np.exp(np.array(A[u]).T.dot(lam[u])))
+                x[u] = np.clip(x[u], 0.03, 0.97)
+
             else:
                 lam[u] = np.array([1])
                 x[u] = 1/(1+np.exp(A[u][0]))
+                x[u] = np.clip(x[u], 0.03, 0.97)
 
+            if max(abs((prev_x - x[u]))) < 1e-6:
+                finished.add(u)
 
             A[u] = [y for i,y in enumerate(A[u]) if lam[u][i] > 0]
             b[u] = [y for i,y in enumerate(b[u]) if lam[u][i] > 0]

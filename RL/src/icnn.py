@@ -30,6 +30,11 @@ class Agent:
 
         nets = icnn_nets_dm
 
+        def entropy(x): #the real concave entropy function
+            x_move_reg = tf.clip_by_value((x + 1) / 2, 0.0001, 0.9999)
+            pen = x_move_reg * tf.log(x_move_reg) + (1 - x_move_reg) * tf.log(1 - x_move_reg)
+            return -tf.reduce_sum(pen, 1)
+
         # init replay memory
         self.rm = ReplayMemory(FLAGS.rmsize, dimO, dimA)
         # start tf session
@@ -54,17 +59,23 @@ class Agent:
         act_expl = act_test + noise
 
         # test, single sample q function & gradient for bundle method
-        q_test_opt, cz1, cz2, cz3, _, _, _, _ = nets.qfunction(obs, act_test, self.theta)
+        q_test_opt, _, _, _, _ = nets.qfunction(obs, act_test, self.theta, False, False)
         loss_test = -q_test_opt
         act_test_grad = tf.gradients(loss_test, act_test)[0]
+
+        loss_test_gd = -q_test_opt - entropy(act_test)
+        act_test_grad_gd = tf.gradients(loss_test_gd, act_test)[0]
 
         # batched q function & gradient for bundle method
         obs_train2_opt = tf.placeholder(tf.float32, [FLAGS.bsize] + dimO, "obs_train2_opt")
         act_train2_opt = tf.placeholder(tf.float32, [FLAGS.bsize] + dimA, "act_train2_opt")
 
-        q_train2_opt, cz1t, cz2t, cz3t, _, _, _, _ = nets.qfunction(obs_train2_opt, act_train2_opt, self.theta_t)
+        q_train2_opt, _, _, _, _ = nets.qfunction(obs_train2_opt, act_train2_opt, self.theta_t, True, False)
         loss_train2 = -q_train2_opt
         act_train2_grad = tf.gradients(loss_train2, act_train2_opt)[0]
+
+        loss_train2_gd = -q_train2_opt - entropy(act_train2_opt)
+        act_train2_grad_gd = tf.gradients(loss_train2_gd, act_train2_opt)[0]
 
         # training
         obs_train = tf.placeholder(tf.float32, [FLAGS.bsize] + dimO, "obs_train")
@@ -74,29 +85,26 @@ class Agent:
         act_train2 = tf.placeholder(tf.float32, [FLAGS.bsize] + dimA, "act_train2")
         term2 = tf.placeholder(tf.bool, [FLAGS.bsize], "term2")
 
-        def entropy(x): #the real concave entropy function
-            x_move_reg = tf.clip_by_value((x + 1) / 2, 0.0001, 0.9999)
-            pen = x_move_reg * tf.log(x_move_reg) + (1 - x_move_reg) * tf.log(1 - x_move_reg)
-            return -tf.reduce_sum(pen, 1)
-
-        q_train, q_train_cz1, q_train_cz2, q_train_cz3, q_train_z1, q_train_z2, q_train_u1, q_train_u2 = nets.qfunction(obs_train, act_train, self.theta)
+        q_train, q_train_z1, q_train_z2, q_train_u1, q_train_u2 = nets.qfunction(obs_train, act_train, self.theta, True, True)
         q_train_entropy = q_train + entropy(act_train)
 
-        q_train2, q_train2_cz1, q_train2_cz2, q_train2_cz3, _, _, _, _ = nets.qfunction(obs_train2, act_train2, self.theta_t)
+        q_train2, _, _, _, _ = nets.qfunction(obs_train2, act_train2, self.theta_t, True, True)
         q_train2_entropy = q_train2 + entropy(act_train2)
-        q_target = tf.stop_gradient(tf.select(term2, rew, rew + discount * q_train2_entropy))
+        q_target = tf.select(term2, rew, rew + discount * q_train2_entropy)
+        q_target = tf.maximum(q_train_entropy - 1., q_target)
+        q_target = tf.minimum(q_train_entropy + 1., q_target)
+        q_target = tf.stop_gradient(q_target)
 
         # q loss
         td_error = q_train_entropy - q_target
         ms_td_error = tf.reduce_mean(tf.square(td_error), 0)
         theta = self.theta
-        wd_q = tf.add_n([l2norm * tf.nn.l2_loss(var) for var in theta])  # weight decay
+        wd_q = tf.add_n([l2norm * tf.nn.l2_loss(var) if var.name[6] == 'W' else 0. for var in theta])  # weight decay
         loss_q = ms_td_error + wd_q
         # q optimization
-        optim_q = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        optim_q = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=1e-4)
         grads_and_vars_q = optim_q.compute_gradients(loss_q)
-        grads_and_vars_q_clip = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in grads_and_vars_q]
-        optimize_q = optim_q.apply_gradients(grads_and_vars_q_clip)
+        optimize_q = optim_q.apply_gradients(grads_and_vars_q)
         with tf.control_dependencies([optimize_q]):
             train_q = tf.group(update_t)
 
@@ -108,8 +116,8 @@ class Agent:
         summary_list.append(tf.scalar_summary('reward', tf.reduce_mean(rew)))
         summary_list.append(tf.scalar_summary('cvx_z1', tf.reduce_mean(q_train_z1)))
         summary_list.append(tf.scalar_summary('cvx_z2', tf.reduce_mean(q_train_z2)))
-        summary_list.append(tf.scalar_summary('cvx_z1_pos', tf.reduce_mean(tf.to_float(q_train_z1 > 0))))
-        summary_list.append(tf.scalar_summary('cvx_z2_pos', tf.reduce_mean(tf.to_float(q_train_z2 > 0))))
+        summary_list.append(tf.scalar_summary('cvx_z1_pos', tf.reduce_mean(tf.to_float(q_train_z1 > 1e-15))))
+        summary_list.append(tf.scalar_summary('cvx_z2_pos', tf.reduce_mean(tf.to_float(q_train_z2 > 1e-15))))
         summary_list.append(tf.scalar_summary('noncvx_u1', tf.reduce_mean(q_train_u1)))
         summary_list.append(tf.scalar_summary('noncvx_u2', tf.reduce_mean(q_train_u2)))
         summary_list.append(tf.scalar_summary('noncvx_u1_pos', tf.reduce_mean(tf.to_float(q_train_u1 > 1e-15))))
@@ -117,14 +125,15 @@ class Agent:
 
         # tf functions
         with self.sess.as_default():
-            self._cz = Fun([obs], [cz1, cz2, cz3])
-            self._czt = Fun([obs_train2_opt], [cz1t, cz2t, cz3t])
             self._reset = Fun([], self.ou_reset)
             self._act_expl = Fun(act_test, act_expl)
             self._train = Fun([obs_train, act_train, rew, obs_train2, act_train2, term2], [train_q, loss_q], summary_list, summary_writer)
 
-            self._opt_test = Fun([act_test, cz1, cz2, cz3], [loss_test, act_test_grad])
-            self._opt_train = Fun([act_train2_opt, cz1t, cz2t, cz3t], [loss_train2, act_train2_grad])
+            self._opt_test = Fun([obs, act_test], [loss_test, act_test_grad])
+            self._opt_train = Fun([obs_train2_opt, act_train2_opt], [loss_train2, act_train2_grad])
+
+            self._opt_test_gd = Fun([obs, act_test], [loss_test_gd, act_test_grad_gd])
+            self._opt_train_gd = Fun([obs_train2_opt, act_train2_opt], [loss_train2_gd, act_train2_grad_gd])
 
         # initialize tf variables
         self.saver = tf.train.Saver(max_to_keep=1)
@@ -138,10 +147,10 @@ class Agent:
 
         self.t = 0  # global training time (number of observations)
 
-    def get_cvx_opt(self, func, cz1, cz2, cz3):
-        act = np.ones((cz1.shape[0], self.dimA)) * 0.5
+    def get_cvx_opt(self, func, obs):
+        act = np.ones((obs.shape[0], self.dimA)) * 0.5
         def fg(x):
-            value, grad = func(2 * x - 1, cz1, cz2, cz3)
+            value, grad = func(obs, 2 * x - 1)
             grad *= 2
             return value, grad
 
@@ -150,6 +159,37 @@ class Agent:
 
         return act
 
+    def get_cvx_opt_gd(self, func, obs):
+        b1 = 0.7
+        b2 = 0.9
+        eps = 1e-4
+        r = 0.1
+        act = np.zeros((obs.shape[0], self.dimA))
+        m = np.zeros((obs.shape[0], self.dimA))
+        v = np.zeros((obs.shape[0],))
+
+        b1t = 1
+        b2t = 1
+        act_best = None
+        f_best = None
+        for i in xrange(50):
+            f, g = func(obs, act)
+            if i == 0:
+                act_best = act.copy()
+                f_best = f.copy()
+            else:
+                I = (f < f_best)
+                act_best[I] = act[I]
+                f_best[I] = f[I]
+            m = b1 * m + (1. - b1) * g
+            v = b2 * v + (1. - b2) * np.sum(g * g, axis=1)
+            b1t *= b1
+            b2t *= b2
+            lrt = r * np.sqrt(1 - b2t) / (1 - b1t)
+
+            act = act - (lrt / (np.sqrt(v) + eps) * m.T).T
+            act = np.clip(act, -1, 1)
+        return act_best
 
     def reset(self, obs):
         self._reset()
@@ -157,8 +197,10 @@ class Agent:
 
     def act(self, test=False):
         obs = np.expand_dims(self.observation, axis=0)
-        cz1, cz2, cz3 = self._cz(obs)
-        act = self.get_cvx_opt(self._opt_test, cz1, cz2, cz3)
+        if FLAGS.use_gd:
+            act = self.get_cvx_opt_gd(self._opt_test_gd, obs)
+        else:
+            act = self.get_cvx_opt(self._opt_test, obs)
         action = act if test else self._act_expl(act)
         action = np.clip(action, -1, 1)
         self.action = np.atleast_1d(np.squeeze(action, axis=0))  # TODO: remove this hack
@@ -181,8 +223,10 @@ class Agent:
 
     def train(self):
         obs, act, rew, ob2, term2, info = self.rm.minibatch(size=FLAGS.bsize)
-        cz1t, cz2t, cz3t = self._czt(ob2)
-        act2 = self.get_cvx_opt(self._opt_train, cz1t, cz2t, cz3t)
+        if FLAGS.use_gd:
+            act2 = self.get_cvx_opt_gd(self._opt_train_gd, ob2)
+        else:
+            act2 = self.get_cvx_opt(self._opt_train, ob2)
 
         _, loss = self._train(obs, act, rew, ob2, act2, term2, log=FLAGS.summary, global_step=self.t)
         return loss

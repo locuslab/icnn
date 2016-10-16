@@ -36,6 +36,8 @@ class Agent:
             allow_soft_placement=True,
             gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.1)))
 
+        is_training = tf.placeholder(tf.bool)
+
         # create tf computational graph
         self.theta_L = nets.theta(dimO[0], dimA[0] * dimA[0], FLAGS.l1size, FLAGS.l2size, 'theta_L')
         self.theta_U = nets.theta(dimO[0], dimA[0], FLAGS.l1size, FLAGS.l2size, 'theta_U')
@@ -43,7 +45,7 @@ class Agent:
         self.theta_Vt, update_Vt = exponential_moving_averages(self.theta_V, tau)
 
         obs_single = tf.placeholder(tf.float32, [1] + dimO, "obs-single")
-        act_test = nets.ufunction(obs_single, self.theta_U)
+        act_test = nets.ufunction(obs_single, self.theta_U, False, is_training)
 
         # explore
         noise_init = tf.zeros([1] + dimA)
@@ -59,13 +61,14 @@ class Agent:
         obs2 = tf.placeholder(tf.float32, [FLAGS.bsize] + dimO, "obs2")
         term2 = tf.placeholder(tf.bool, [FLAGS.bsize], "term2")
         # q
-        lmat = nets.lfunction(obs_train, self.theta_L)
-        uvalue = nets.ufunction(obs_train, self.theta_U)
+        lmat = nets.lfunction(obs_train, self.theta_L, False, is_training)
+        uvalue = nets.ufunction(obs_train, self.theta_U, True, is_training)
         avalue = nets.afunction(act_train, lmat, uvalue, dimA[0])
-        q_train = nets.qfunction(obs_train, avalue, self.theta_V)
+        q_train = nets.qfunction(obs_train, avalue, self.theta_V, False, is_training)
 
         # q targets
-        q2 = nets.qfunction(obs2, tf.constant([0.] * FLAGS.bsize), self.theta_Vt)
+        q2 = nets.qfunction(obs2, tf.constant([0.] * FLAGS.bsize),
+                            self.theta_Vt, True, is_training)
         q_target = tf.stop_gradient(tf.select(term2, rew, rew + discount * q2))
 
         # q loss
@@ -75,10 +78,9 @@ class Agent:
         wd_q = tf.add_n([l2norm * tf.nn.l2_loss(var) for var in theta])  # weight decay
         loss_q = ms_td_error + wd_q
         # q optimization
-        optim_q = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        optim_q = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=1e-4)
         grads_and_vars_q = optim_q.compute_gradients(loss_q)
-        grads_and_vars_q_clip = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in grads_and_vars_q]
-        optimize_q = optim_q.apply_gradients(grads_and_vars_q_clip)
+        optimize_q = optim_q.apply_gradients(grads_and_vars_q)
         with tf.control_dependencies([optimize_q]):
             train_q = tf.group(update_Vt)
 
@@ -90,10 +92,10 @@ class Agent:
 
         # tf functions
         with self.sess.as_default():
-            self._act_test = Fun([obs_single], act_test)
-            self._act_expl = Fun([obs_single], act_expl)
+            self._act_test = Fun([obs_single, is_training], act_test)
+            self._act_expl = Fun([obs_single, is_training], act_expl)
             self._reset = Fun([], self.ou_reset)
-            self._train = Fun([obs_train, act_train, rew, obs2, term2], [train_q, loss_q], summary_list, summary_writer)
+            self._train = Fun([obs_train, act_train, rew, obs2, term2, is_training], [train_q, loss_q], summary_list, summary_writer)
 
         # initialize tf variables
         self.saver = tf.train.Saver(max_to_keep=1)
@@ -113,7 +115,7 @@ class Agent:
 
     def act(self, test=False):
         obs = np.expand_dims(self.observation, axis=0)
-        action = self._act_test(obs) if test else self._act_expl(obs)
+        action = self._act_test(obs, False) if test else self._act_expl(obs, False)
         action = np.clip(action, -1, 1)
         self.action = np.atleast_1d(np.squeeze(action, axis=0))  # TODO: remove this hack
         return self.action
@@ -134,7 +136,7 @@ class Agent:
 
     def train(self):
         obs, act, rew, ob2, term2, info = self.rm.minibatch(size=FLAGS.bsize)
-        _, loss = self._train(obs, act, rew, ob2, term2, log=FLAGS.summary, global_step=self.t)
+        _, loss = self._train(obs, act, rew, ob2, term2, True, log=FLAGS.summary, global_step=self.t)
         return loss
 
     def __del__(self):

@@ -1,6 +1,3 @@
-# Code from Repo SimonRamstedt/ddpg
-# Heavily modified
-
 import os
 
 import numpy as np
@@ -75,7 +72,7 @@ class Agent:
         wd_p = tf.add_n([pl2norm * tf.nn.l2_loss(var) for var in self.theta_p])  # weight decay
         loss_p = -meanq + wd_p
         # policy optimization
-        optim_p = tf.train.AdamOptimizer(learning_rate=plearning_rate)
+        optim_p = tf.train.AdamOptimizer(learning_rate=plearning_rate, epsilon=1e-4)
         grads_and_vars_p = optim_p.compute_gradients(loss_p, var_list=self.theta_p)
         optimize_p = optim_p.apply_gradients(grads_and_vars_p)
         with tf.control_dependencies([optimize_p]):
@@ -94,7 +91,7 @@ class Agent:
         wd_q = tf.add_n([l2norm * tf.nn.l2_loss(var) for var in self.theta_q])  # weight decay
         loss_q = ms_td_error + wd_q
         # q optimization
-        optim_q = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        optim_q = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=1e-4)
         grads_and_vars_q = optim_q.compute_gradients(loss_q, var_list=self.theta_q)
         optimize_q = optim_q.apply_gradients(grads_and_vars_q)
         with tf.control_dependencies([optimize_q]):
