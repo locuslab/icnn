@@ -30,4 +30,4 @@ do
 done
 
 #plot
-python src/plot.py --runs $N --total $total --train $trainTimestep --data $outdir
+python src/plot.py --runs $N --total $total --train $trainTimestep --data $outdir --min 0 --max 10000

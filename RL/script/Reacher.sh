@@ -1,4 +1,4 @@
-N=10
+N=1
 total=10000
 trainTimestep=100
 testEpisode=5
@@ -30,4 +30,4 @@ do
 done
 
 #plot
-python src/plot.py --runs $N --total $total --train $trainTimestep --data $outdir
+python src/plot.py --runs $N --total $total --train $trainTimestep --data $outdir --min -15 --max -5
