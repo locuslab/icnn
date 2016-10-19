@@ -157,8 +157,8 @@ class Agent:
         return act
 
     def get_cvx_opt_gd(self, func, obs):
-        b1 = 0.9
-        b2 = 0.999
+        b1 = 0.7
+        b2 = 0.9
         eps = 1e-4
         r = 0.1
         act = np.zeros((obs.shape[0], self.dimA))
@@ -167,8 +167,17 @@ class Agent:
 
         b1t = 1
         b2t = 1
+        act_best = None
+        f_best = None
         for i in xrange(50):
             f, g = func(obs, act)
+            if i == 0:
+                act_best = act.copy()
+                f_best = f.copy()
+            else:
+                I = (f < f_best)
+                act_best[I] = act[I]
+                f_best[I] = f[I]
             m = b1 * m + (1. - b1) * g
             v = b2 * v + (1. - b2) * np.sum(g * g, axis=1)
             b1t *= b1
@@ -177,7 +186,7 @@ class Agent:
 
             act = act - (lrt / (np.sqrt(v) + eps) * m.T).T
             act = np.clip(act, -1, 1)
-        return act
+        return act_best
 
     def reset(self, obs):
         self._reset()
