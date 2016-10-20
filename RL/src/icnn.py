@@ -59,7 +59,7 @@ class Agent:
         act_expl = act_test + noise
 
         # test, single sample q function & gradient for bundle method
-        q_test_opt, _, _, _, _ = nets.qfunction(obs, act_test, self.theta)
+        q_test_opt, _, _, _, _ = nets.qfunction(obs, act_test, self.theta, False, False)
         loss_test = -q_test_opt
         act_test_grad = tf.gradients(loss_test, act_test)[0]
 
@@ -70,7 +70,7 @@ class Agent:
         obs_train2_opt = tf.placeholder(tf.float32, [FLAGS.bsize] + dimO, "obs_train2_opt")
         act_train2_opt = tf.placeholder(tf.float32, [FLAGS.bsize] + dimA, "act_train2_opt")
 
-        q_train2_opt, _, _, _, _ = nets.qfunction(obs_train2_opt, act_train2_opt, self.theta_t)
+        q_train2_opt, _, _, _, _ = nets.qfunction(obs_train2_opt, act_train2_opt, self.theta_t, True, False)
         loss_train2 = -q_train2_opt
         act_train2_grad = tf.gradients(loss_train2, act_train2_opt)[0]
 
@@ -85,10 +85,10 @@ class Agent:
         act_train2 = tf.placeholder(tf.float32, [FLAGS.bsize] + dimA, "act_train2")
         term2 = tf.placeholder(tf.bool, [FLAGS.bsize], "term2")
 
-        q_train, q_train_z1, q_train_z2, q_train_u1, q_train_u2 = nets.qfunction(obs_train, act_train, self.theta)
+        q_train, q_train_z1, q_train_z2, q_train_u1, q_train_u2 = nets.qfunction(obs_train, act_train, self.theta, True, True)
         q_train_entropy = q_train + entropy(act_train)
 
-        q_train2, _, _, _, _ = nets.qfunction(obs_train2, act_train2, self.theta_t)
+        q_train2, _, _, _, _ = nets.qfunction(obs_train2, act_train2, self.theta_t, True, True)
         q_train2_entropy = q_train2 + entropy(act_train2)
         q_target = tf.stop_gradient(tf.select(term2, rew, rew + discount * q_train2_entropy))
 

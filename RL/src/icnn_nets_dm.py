@@ -42,7 +42,9 @@ def theta(dimO, dimA, l1, l2, scope):
                 ]
 
 
-def qfunction(obs, act, theta, name="qfunction"):
+def qfunction(obs, act, theta, reuse, is_training, name="qfunction"):
+    batch_norm_params = {'is_training': is_training, 'decay': 0.999, 'epsilon': 1e-3,
+                         'updates_collections': None, 'reuse': reuse}
 
     with tf.variable_op_scope([obs, act], name, name):
         u0 = tf.identity(obs)
@@ -51,7 +53,10 @@ def qfunction(obs, act, theta, name="qfunction"):
         u1 = tf.matmul(u0, theta[0]) + theta[2]
         u1 = tf.nn.relu(u1)
         u2 = tf.matmul(u1, theta[1]) + theta[3]
-        u2 = tf.nn.relu(u2)
+        if FLAGS.icnn_bn:
+            u2 = tf.nn.relu(tf.contrib.layers.batch_norm(u2, scope='u2', **batch_norm_params))
+        else:
+            u2 = tf.nn.relu(u2)
 
         z1 = tf.matmul((tf.matmul(u0, theta[10]) + theta[16]) * y, theta[13])
         z1 = z1 + tf.matmul(u0, theta[19]) + theta[22]
@@ -60,7 +65,10 @@ def qfunction(obs, act, theta, name="qfunction"):
         z2 = tf.matmul(tf.nn.relu(tf.matmul(u1, theta[4]) + theta[8]) * z1, tf.abs(theta[6]))
         z2 = z2 + tf.matmul((tf.matmul(u1, theta[11]) + theta[17]) * y, theta[14])
         z2 = z2 + tf.matmul(u1, theta[20]) + theta[23]
-        z2 = lrelu(z2, FLAGS.lrelu)
+        if FLAGS.icnn_bn:
+            z2 = lrelu(tf.contrib.layers.batch_norm(z2, scope='z2', **batch_norm_params), FLAGS.lrelu)
+        else:
+            z2 = lrelu(z2, FLAGS.lrelu)
 
         z3 = tf.matmul(tf.nn.relu(tf.matmul(u2, theta[5]) + theta[9]) * z2, tf.abs(theta[7]))
         z3 = z3 + tf.matmul((tf.matmul(u2, theta[12]) + theta[18]) * y, theta[15])
