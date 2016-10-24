@@ -1,4 +1,4 @@
-N=1
+N=10
 total=10000
 trainTimestep=100
 testEpisode=5
