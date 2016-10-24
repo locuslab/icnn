@@ -90,7 +90,10 @@ class Agent:
 
         q_train2, _, _, _, _ = nets.qfunction(obs_train2, act_train2, self.theta_t, True, True)
         q_train2_entropy = q_train2 + entropy(act_train2)
-        q_target = tf.stop_gradient(tf.select(term2, rew, rew + discount * q_train2_entropy))
+        q_target = tf.select(term2, rew, rew + discount * q_train2_entropy)
+        q_target = tf.maximum(q_train_entropy - 1., q_target)
+        q_target = tf.minimum(q_train_entropy + 1., q_target)
+        q_target = tf.stop_gradient(q_target)
 
         # q loss
         td_error = q_train_entropy - q_target
