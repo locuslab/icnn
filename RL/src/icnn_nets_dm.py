@@ -62,7 +62,7 @@ def qfunction(obs, act, theta, reuse, is_training, name="qfunction"):
         z1 = z1 + tf.matmul(u0, theta[19]) + theta[22]
         z1 = lrelu(z1, FLAGS.lrelu)
 
-        z2 = tf.matmul(tf.nn.relu(tf.matmul(u1, theta[4]) + theta[8]) * z1, tf.abs(theta[6]))
+        z2 = tf.matmul(tf.nn.relu(tf.matmul(u1, theta[4]) + theta[8]) * z1, theta[6])
         z2 = z2 + tf.matmul((tf.matmul(u1, theta[11]) + theta[17]) * y, theta[14])
         z2 = z2 + tf.matmul(u1, theta[20]) + theta[23]
         if FLAGS.icnn_bn:
@@ -70,7 +70,7 @@ def qfunction(obs, act, theta, reuse, is_training, name="qfunction"):
         else:
             z2 = lrelu(z2, FLAGS.lrelu)
 
-        z3 = tf.matmul(tf.nn.relu(tf.matmul(u2, theta[5]) + theta[9]) * z2, tf.abs(theta[7]))
+        z3 = tf.matmul(tf.nn.relu(tf.matmul(u2, theta[5]) + theta[9]) * z2, theta[7])
         z3 = z3 + tf.matmul((tf.matmul(u2, theta[12]) + theta[18]) * y, theta[15])
         z3 = z3 + tf.matmul(u2, theta[21]) + theta[24]
         z3 = -tf.squeeze(z3, [1], name='z3')

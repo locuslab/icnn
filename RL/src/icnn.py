@@ -48,6 +48,11 @@ class Agent:
         self.theta = nets.theta(dimO[0], dimA[0], FLAGS.l1size, FLAGS.l2size, 'theta')
         self.theta_t, update_t = exponential_moving_averages(self.theta, tau)
 
+        assign0 = self.theta[6].assign(tf.maximum(self.theta[6], 0))
+        assign1 = self.theta[7].assign(tf.maximum(self.theta[7], 0))
+        assign2 = self.theta_t[6].assign(tf.maximum(self.theta_t[6], 0))
+        assign3 = self.theta_t[7].assign(tf.maximum(self.theta_t[7], 0))
+
         obs = tf.placeholder(tf.float32, [1] + dimO, "obs")
         act_test = tf.placeholder(tf.float32, [1] + dimA, "act")
 
@@ -113,7 +118,10 @@ class Agent:
         summary_list = []
         summary_list.append(tf.scalar_summary('Qvalue', tf.reduce_mean(q_train_entropy)))
         summary_list.append(tf.scalar_summary('loss', ms_td_error))
-        summary_list.append(tf.scalar_summary('reward', tf.reduce_mean(rew)))
+        mean_r = tf.reduce_mean(rew)
+        std_r = tf.sqrt(tf.reduce_mean(tf.square(rew - mean_r)))
+        summary_list.append(tf.scalar_summary('reward', mean_r))
+        summary_list.append(tf.scalar_summary('reward_range_95', 1.96 * std_r))
         summary_list.append(tf.scalar_summary('cvx_z1', tf.reduce_mean(q_train_z1)))
         summary_list.append(tf.scalar_summary('cvx_z2', tf.reduce_mean(q_train_z2)))
         summary_list.append(tf.scalar_summary('cvx_z1_pos', tf.reduce_mean(tf.to_float(q_train_z1 > 1e-15))))
@@ -127,6 +135,7 @@ class Agent:
         with self.sess.as_default():
             self._reset = Fun([], self.ou_reset)
             self._act_expl = Fun(act_test, act_expl)
+            self._assign = Fun([], [assign0, assign1, assign2, assign3])
             self._train = Fun([obs_train, act_train, rew, obs_train2, act_train2, term2], [train_q, loss_q], summary_list, summary_writer)
 
             self._opt_test = Fun([obs, act_test], [loss_test, act_test_grad])
@@ -145,6 +154,7 @@ class Agent:
 
         self.sess.graph.finalize()
 
+        self._assign()
         self.t = 0  # global training time (number of observations)
 
     def get_cvx_opt(self, func, obs):
@@ -229,6 +239,7 @@ class Agent:
             act2 = self.get_cvx_opt(self._opt_train, ob2)
 
         _, loss = self._train(obs, act, rew, ob2, act2, term2, log=FLAGS.summary, global_step=self.t)
+        self._assign()
         return loss
 
     def __del__(self):

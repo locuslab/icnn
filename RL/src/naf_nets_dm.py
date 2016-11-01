@@ -42,8 +42,8 @@ def lfunction(obs, theta, reuse, is_training, scope="lfunction"):
 
 def vec2trimat(vec, dim):
     L = tf.reshape(vec, [-1, dim, dim])
-    L = tf.batch_matrix_band_part(L, -1, 0) - tf.batch_matrix_diag(tf.batch_matrix_diag_part(L)) + \
-        tf.batch_matrix_diag(tf.exp(tf.batch_matrix_diag_part(L)))
+    L = tf.matrix_band_part(L, -1, 0) - tf.matrix_diag(tf.matrix_diag_part(L)) + \
+        tf.matrix_diag(tf.exp(tf.matrix_diag_part(L)))
     return L
 
 

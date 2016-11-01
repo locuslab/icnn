@@ -101,7 +101,10 @@ class Agent:
         summary_list = []
         summary_list.append(tf.scalar_summary('Qvalue', tf.reduce_mean(q_train)))
         summary_list.append(tf.scalar_summary('loss', ms_td_error))
-        summary_list.append(tf.scalar_summary('reward', tf.reduce_mean(rew)))
+        mean_r = tf.reduce_mean(rew)
+        std_r = tf.sqrt(tf.reduce_mean(tf.square(rew - mean_r)))
+        summary_list.append(tf.scalar_summary('reward', mean_r))
+        summary_list.append(tf.scalar_summary('reward_range_95', 1.96 * std_r))
 
         # tf functions
         with self.sess.as_default():
