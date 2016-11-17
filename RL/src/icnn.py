@@ -30,6 +30,13 @@ class Agent:
 
         nets = icnn_nets_dm
 
+        if FLAGS.icnn_opt == 'adam':
+            self.opt = self.adam
+        elif FLAGS.icnn_opt == 'bundle_entropy':
+            self.opt = self.bundle_entropy
+        else:
+            raise RuntimeError("Unrecognized ICNN optimizer: "+FLAGS.icnn_opt)
+
         def entropy(x): #the real concave entropy function
             x_move_reg = tf.clip_by_value((x + 1) / 2, 0.0001, 0.9999)
             pen = x_move_reg * tf.log(x_move_reg) + (1 - x_move_reg) * tf.log(1 - x_move_reg)
@@ -63,19 +70,20 @@ class Agent:
         loss_test = -q_test_opt
         act_test_grad = tf.gradients(loss_test, act_test)[0]
 
-        loss_test_gd = -q_test_opt - entropy(act_test)
-        act_test_grad_gd = tf.gradients(loss_test_gd, act_test)[0]
+        loss_test_entr = -q_test_opt - entropy(act_test)
+        act_test_grad_entr = tf.gradients(loss_test_entr, act_test)[0]
 
         # batched q function & gradient for bundle method
         obs_train2_opt = tf.placeholder(tf.float32, [FLAGS.bsize] + dimO, "obs_train2_opt")
         act_train2_opt = tf.placeholder(tf.float32, [FLAGS.bsize] + dimA, "act_train2_opt")
 
-        q_train2_opt, _, _, _, _ = nets.qfunction(obs_train2_opt, act_train2_opt, self.theta_t, True, False)
+        q_train2_opt, _, _, _, _ = nets.qfunction(obs_train2_opt, act_train2_opt,
+                                                  self.theta_t, True, False)
         loss_train2 = -q_train2_opt
         act_train2_grad = tf.gradients(loss_train2, act_train2_opt)[0]
 
-        loss_train2_gd = -q_train2_opt - entropy(act_train2_opt)
-        act_train2_grad_gd = tf.gradients(loss_train2_gd, act_train2_opt)[0]
+        loss_train2_entr = -q_train2_opt - entropy(act_train2_opt)
+        act_train2_grad_entr = tf.gradients(loss_train2_entr, act_train2_opt)[0]
 
         # training
         obs_train = tf.placeholder(tf.float32, [FLAGS.bsize] + dimO, "obs_train")
@@ -99,10 +107,13 @@ class Agent:
         td_error = q_train_entropy - q_target
         ms_td_error = tf.reduce_mean(tf.square(td_error), 0)
         theta = self.theta
-        wd_q = tf.add_n([l2norm * tf.nn.l2_loss(var) if var.name[6] == 'W' else 0. for var in theta])  # weight decay
+        # TODO: Replace with something cleaner, this could easily stop working
+        # if the variable names change.
+        wd_q = tf.add_n([l2norm * tf.nn.l2_loss(var)
+                         if var.name[6] == 'W' else 0. for var in theta])  # weight decay
         loss_q = ms_td_error + wd_q
         # q optimization
-        optim_q = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=1e-4)
+        optim_q = tf.train.AdamOptimizer(learning_rate=learning_rate)
         grads_and_vars_q = optim_q.compute_gradients(loss_q)
         optimize_q = optim_q.apply_gradients(grads_and_vars_q)
         with tf.control_dependencies([optimize_q]):
@@ -127,13 +138,15 @@ class Agent:
         with self.sess.as_default():
             self._reset = Fun([], self.ou_reset)
             self._act_expl = Fun(act_test, act_expl)
-            self._train = Fun([obs_train, act_train, rew, obs_train2, act_train2, term2], [train_q, loss_q], summary_list, summary_writer)
+            self._train = Fun([obs_train, act_train, rew, obs_train2, act_train2, term2],
+                              [train_q, loss_q], summary_list, summary_writer)
 
             self._opt_test = Fun([obs, act_test], [loss_test, act_test_grad])
-            self._opt_train = Fun([obs_train2_opt, act_train2_opt], [loss_train2, act_train2_grad])
-
-            self._opt_test_gd = Fun([obs, act_test], [loss_test_gd, act_test_grad_gd])
-            self._opt_train_gd = Fun([obs_train2_opt, act_train2_opt], [loss_train2_gd, act_train2_grad_gd])
+            self._opt_train = Fun([obs_train2_opt, act_train2_opt],
+                                  [loss_train2, act_train2_grad])
+            self._opt_test_entr = Fun([obs, act_test], [loss_test_entr, act_test_grad_entr])
+            self._opt_train_entr = Fun([obs_train2_opt, act_train2_opt],
+                                       [loss_train2_entr, act_train2_grad_entr])
 
         # initialize tf variables
         self.saver = tf.train.Saver(max_to_keep=1)
@@ -147,7 +160,7 @@ class Agent:
 
         self.t = 0  # global training time (number of observations)
 
-    def get_cvx_opt(self, func, obs):
+    def bundle_entropy(self, func, obs):
         act = np.ones((obs.shape[0], self.dimA)) * 0.5
         def fg(x):
             value, grad = func(obs, 2 * x - 1)
@@ -159,7 +172,7 @@ class Agent:
 
         return act
 
-    def get_cvx_opt_gd(self, func, obs):
+    def adam(self, func, obs):
         b1 = 0.9
         b2 = 0.999
         lam = 0.7
@@ -209,17 +222,22 @@ class Agent:
 
     def act(self, test=False):
         obs = np.expand_dims(self.observation, axis=0)
-        if FLAGS.use_gd:
-            act = self.get_cvx_opt_gd(self._opt_test_gd, obs)
+
+        if FLAGS.icnn_opt == 'adam':
+            # f = self._opt_test_entr
+            f = self._opt_test
+        elif FLAGS.icnn_opt == 'bundle_entropy':
+            f = self._opt_test
         else:
-            act = self.get_cvx_opt(self._opt_test, obs)
+            raise RuntimeError("Unrecognized ICNN optimizer: "+FLAGS.icnn_opt)
+        act = self.opt(f, obs)
+
         action = act if test else self._act_expl(act)
         action = np.clip(action, -1, 1)
         self.action = np.atleast_1d(np.squeeze(action, axis=0))  # TODO: remove this hack
         return self.action
 
     def observe(self, rew, term, obs2, test=False):
-
         obs1 = self.observation
         self.observation = obs2
 
@@ -235,12 +253,17 @@ class Agent:
 
     def train(self):
         obs, act, rew, ob2, term2, info = self.rm.minibatch(size=FLAGS.bsize)
-        if FLAGS.use_gd:
-            act2 = self.get_cvx_opt_gd(self._opt_train_gd, ob2)
+        if FLAGS.icnn_opt == 'adam':
+            # f = self._opt_train_entr
+            f = self._opt_train
+        elif FLAGS.icnn_opt == 'bundle_entropy':
+            f = self._opt_train
         else:
-            act2 = self.get_cvx_opt(self._opt_train, ob2)
+            raise RuntimeError("Unrecognized ICNN optimizer: "+FLAGS.icnn_opt)
+        act2 = self.opt(f, ob2)
 
-        _, loss = self._train(obs, act, rew, ob2, act2, term2, log=FLAGS.summary, global_step=self.t)
+        _, loss = self._train(obs, act, rew, ob2, act2, term2,
+                              log=FLAGS.summary, global_step=self.t)
         return loss
 
     def __del__(self):
