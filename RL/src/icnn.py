@@ -160,20 +160,21 @@ class Agent:
         return act
 
     def get_cvx_opt_gd(self, func, obs):
-        b1 = 0.7
-        b2 = 0.9
-        eps = 1e-4
-        r = 0.1
-        act = np.zeros((obs.shape[0], self.dimA))
-        m = np.zeros((obs.shape[0], self.dimA))
-        v = np.zeros((obs.shape[0],))
+        b1 = 0.9
+        b2 = 0.999
+        lam = 0.7
+        eps = 1e-8
+        alpha = 0.01
+        nBatch = obs.shape[0]
+        act = np.zeros((nBatch, self.dimA))
+        m = np.zeros_like(act)
+        v = np.zeros_like(act)
 
-        b1t = 1
-        b2t = 1
-        act_best = None
-        f_best = None
-        for i in xrange(50):
+        b1t, b2t = 1., 1.
+        act_best, a_diff, f_best = [None]*3
+        for i in range(1000):
             f, g = func(obs, act)
+
             if i == 0:
                 act_best = act.copy()
                 f_best = f.copy()
@@ -181,14 +182,25 @@ class Agent:
                 I = (f < f_best)
                 act_best[I] = act[I]
                 f_best[I] = f[I]
+
             m = b1 * m + (1. - b1) * g
-            v = b2 * v + (1. - b2) * np.sum(g * g, axis=1)
+            v = b2 * v + (1. - b2) * (g * g)
             b1t *= b1
             b2t *= b2
-            lrt = r * np.sqrt(1 - b2t) / (1 - b1t)
+            mhat = m/(1.-b1t)
+            vhat = v/(1.-b2t)
 
-            act = act - (lrt / (np.sqrt(v) + eps) * m.T).T
+            prev_act = act.copy()
+            act -= alpha * mhat / (np.sqrt(v) + eps)
             act = np.clip(act, -1, 1)
+
+            a_diff_i = np.linalg.norm(act - prev_act)
+            a_diff = a_diff_i if a_diff is None else lam*a_diff + (1.-lam)*a_diff_i
+            if a_diff < 1e-4:
+                print('  + ADAM took {} iterations'.format(i))
+                return act_best
+
+        print('  + Warning: ADAM did not converge.')
         return act_best
 
     def reset(self, obs):
