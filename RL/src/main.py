@@ -12,6 +12,8 @@ import agent
 import normalized_env
 import runtime_env
 
+import time
+
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('env', '', 'gym environment')
@@ -61,11 +63,11 @@ class Experiment(object):
         simple_log_file = open(os.path.join(FLAGS.outdir, 'log.txt'), 'w')
 
         while self.train_timestep < FLAGS.total:
-
             # test
             reward_list = []
             for _ in xrange(FLAGS.test):
-                reward, timestep = self.run_episode(test=True, monitor=np.random.rand() < FLAGS.monitor)
+                reward, timestep = self.run_episode(
+                    test=True, monitor=np.random.rand() < FLAGS.monitor)
                 reward_list.append(reward)
                 self.test_timestep += timestep
             avg_reward = np.mean(reward_list)
@@ -76,6 +78,7 @@ class Experiment(object):
             reward_list = []
             last_checkpoint = self.train_timestep / FLAGS.train
             while self.train_timestep / FLAGS.train == last_checkpoint:
+                print('=== Running episode')
                 reward, timestep = self.run_episode(test=False, monitor=False)
                 reward_list.append(reward)
                 self.train_timestep += timestep
@@ -91,18 +94,31 @@ class Experiment(object):
         sum_reward = 0
         timestep = 0
         term = False
+        times = {'act': [], 'envStep': [], 'obs': []}
         while not term:
+            start = time.clock()
             action = self.agent.act(test=test)
+            times['act'].append(time.clock()-start)
 
+            start = time.clock()
             observation, reward, term, info = self.env.step(action)
+            times['envStep'].append(time.clock()-start)
             term = (not test and timestep + 1 >= FLAGS.tmax) or term
 
             filtered_reward = self.env.filter_reward(reward)
+
+            start = time.clock()
             self.agent.observe(filtered_reward, term, observation, test=test)
+            times['obs'].append(time.clock()-start)
 
             sum_reward += reward
             timestep += 1
 
+        print('=== Episode stats:')
+        for k,v in sorted(times.items()):
+            print('  + Total {} time: {:.4f} seconds'.format(k, np.mean(v)))
+
+        print('  + Reward: {}'.format(sum_reward))
         return sum_reward, timestep
 
 
