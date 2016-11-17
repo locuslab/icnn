@@ -172,7 +172,7 @@ class Agent:
 
         b1t, b2t = 1., 1.
         act_best, a_diff, f_best = [None]*3
-        for i in range(1000):
+        for i in range(10000):
             f, g = func(obs, act)
 
             if i == 0:
