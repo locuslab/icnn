@@ -7,3 +7,6 @@ data
 !images/*
 
 work*
+output*
+
+MUJOCO_LOG.TXT
