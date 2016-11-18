@@ -4,9 +4,6 @@ import tensorflow as tf
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-def lrelu(x, p=0.01):
-    return tf.maximum(x, p * x)
-
 def theta(dimO, dimA, l1, l2, scope):
     with tf.variable_scope(scope):
         normal_init = tf.truncated_normal_initializer(mean=0.0, stddev=FLAGS.initstd)
@@ -60,15 +57,15 @@ def qfunction(obs, act, theta, reuse, is_training, name="qfunction"):
 
         z1 = tf.matmul((tf.matmul(u0, theta[10]) + theta[16]) * y, theta[13])
         z1 = z1 + tf.matmul(u0, theta[19]) + theta[22]
-        z1 = lrelu(z1, FLAGS.lrelu)
+        z1 = tf.nn.relu(z1)
 
         z2 = tf.matmul(tf.nn.relu(tf.matmul(u1, theta[4]) + theta[8]) * z1, tf.abs(theta[6]))
         z2 = z2 + tf.matmul((tf.matmul(u1, theta[11]) + theta[17]) * y, theta[14])
         z2 = z2 + tf.matmul(u1, theta[20]) + theta[23]
         if FLAGS.icnn_bn:
-            z2 = lrelu(tf.contrib.layers.batch_norm(z2, scope='z2', **batch_norm_params), FLAGS.lrelu)
+            z2 = tf.nn.relu(tf.contrib.layers.batch_norm(z2, scope='z2', **batch_norm_params))
         else:
-            z2 = lrelu(z2, FLAGS.lrelu)
+            z2 = tf.nn.relu(z2)
 
         z3 = tf.matmul(tf.nn.relu(tf.matmul(u2, theta[5]) + theta[9]) * z2, tf.abs(theta[7]))
         z3 = z3 + tf.matmul((tf.matmul(u2, theta[12]) + theta[18]) * y, theta[15])
