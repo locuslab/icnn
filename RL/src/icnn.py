@@ -62,7 +62,8 @@ class Agent:
         noise_init = tf.zeros([1] + dimA)
         noise_var = tf.Variable(noise_init, name="noise", trainable=False)
         self.ou_reset = noise_var.assign(noise_init)
-        noise = noise_var.assign_sub((outheta) * noise_var - tf.random_normal(dimA, stddev=ousigma))
+        noise = noise_var.assign_sub((outheta) * noise_var - \
+                                     tf.random_normal(dimA, stddev=ousigma))
         act_expl = act_test + noise
 
         # test, single sample q function & gradient for bundle method
@@ -93,18 +94,27 @@ class Agent:
         act_train2 = tf.placeholder(tf.float32, [FLAGS.bsize] + dimA, "act_train2")
         term2 = tf.placeholder(tf.bool, [FLAGS.bsize], "term2")
 
-        q_train, q_train_z1, q_train_z2, q_train_u1, q_train_u2 = nets.qfunction(obs_train, act_train, self.theta, True, True)
+        q_train, q_train_z1, q_train_z2, q_train_u1, q_train_u2 = nets.qfunction(
+            obs_train, act_train, self.theta, True, True)
         q_train_entropy = q_train + entropy(act_train)
 
-        q_train2, _, _, _, _ = nets.qfunction(obs_train2, act_train2, self.theta_t, True, True)
+        q_train2, _, _, _, _ = nets.qfunction(
+            obs_train2, act_train2, self.theta_t, True, True)
         q_train2_entropy = q_train2 + entropy(act_train2)
-        q_target = tf.select(term2, rew, rew + discount * q_train2_entropy)
-        q_target = tf.maximum(q_train_entropy - 1., q_target)
-        q_target = tf.minimum(q_train_entropy + 1., q_target)
-        q_target = tf.stop_gradient(q_target)
 
         # q loss
-        td_error = q_train_entropy - q_target
+        if FLAGS.icnn_opt == 'adam':
+            q_target = tf.select(term2, rew, rew + discount * q_train2)
+            q_target = tf.maximum(q_train - 1., q_target)
+            q_target = tf.minimum(q_train + 1., q_target)
+            q_target = tf.stop_gradient(q_target)
+            td_error = q_train - q_target
+        elif FLAGS.icnn_opt == 'bundle_entropy':
+            q_target = tf.select(term2, rew, rew + discount * q_train2_entropy)
+            q_target = tf.maximum(q_train_entropy - 1., q_target)
+            q_target = tf.minimum(q_train_entropy + 1., q_target)
+            q_target = tf.stop_gradient(q_target)
+            td_error = q_train_entropy - q_target
         ms_td_error = tf.reduce_mean(tf.square(td_error), 0)
         theta = self.theta
         # TODO: Replace with something cleaner, this could easily stop working
@@ -122,7 +132,10 @@ class Agent:
 
         summary_writer = tf.train.SummaryWriter(os.path.join(FLAGS.outdir, 'board'), self.sess.graph)
         summary_list = []
-        summary_list.append(tf.scalar_summary('Qvalue', tf.reduce_mean(q_train_entropy)))
+        if FLAGS.icnn_opt == 'adam':
+            summary_list.append(tf.scalar_summary('Qvalue', tf.reduce_mean(q_train)))
+        elif FLAGS.icnn_opt == 'bundle_entropy':
+            summary_list.append(tf.scalar_summary('Qvalue', tf.reduce_mean(q_train_entropy)))
         summary_list.append(tf.scalar_summary('loss', ms_td_error))
         summary_list.append(tf.scalar_summary('reward', tf.reduce_mean(rew)))
         summary_list.append(tf.scalar_summary('cvx_z1', tf.reduce_mean(q_train_z1)))
@@ -175,7 +188,7 @@ class Agent:
     def adam(self, func, obs):
         b1 = 0.9
         b2 = 0.999
-        lam = 0.7
+        lam = 0.5
         eps = 1e-8
         alpha = 0.01
         nBatch = obs.shape[0]
@@ -207,9 +220,10 @@ class Agent:
             act -= alpha * mhat / (np.sqrt(v) + eps)
             act = np.clip(act, -1, 1)
 
-            a_diff_i = np.linalg.norm(act - prev_act)
+            a_diff_i = np.mean(np.linalg.norm(act - prev_act, axis=1))
             a_diff = a_diff_i if a_diff is None else lam*a_diff + (1.-lam)*a_diff_i
-            if a_diff < 1e-4:
+            # print(a_diff_i, a_diff, np.sum(f))
+            if a_diff_i == 0 or a_diff < 1e-2:
                 print('  + ADAM took {} iterations'.format(i))
                 return act_best
 
@@ -221,6 +235,7 @@ class Agent:
         self.observation = obs  # initial observation
 
     def act(self, test=False):
+        print('--- Selecting action, test={}'.format(test))
         obs = np.expand_dims(self.observation, axis=0)
 
         if FLAGS.icnn_opt == 'adam':
@@ -260,6 +275,7 @@ class Agent:
             f = self._opt_train
         else:
             raise RuntimeError("Unrecognized ICNN optimizer: "+FLAGS.icnn_opt)
+        print('--- Optimizing for training')
         act2 = self.opt(f, ob2)
 
         _, loss = self._train(obs, act, rew, ob2, act2, term2,
