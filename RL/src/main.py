@@ -60,7 +60,8 @@ class Experiment(object):
         pprint.pprint(self.env.spec.__dict__)
 
         self.agent = Agent(dimO, dimA=dimA)
-        simple_log_file = open(os.path.join(FLAGS.outdir, 'log.txt'), 'w')
+        test_log = open(os.path.join(FLAGS.outdir, 'log.txt'), 'w')
+        train_log = open(os.path.join(FLAGS.outdir, 'train.log.txt'), 'w')
 
         while self.train_timestep < FLAGS.total:
             # test
@@ -71,8 +72,9 @@ class Experiment(object):
                 reward_list.append(reward)
                 self.test_timestep += timestep
             avg_reward = np.mean(reward_list)
-            print('Average test return {} after {} timestep of training.'.format(avg_reward, self.train_timestep))
-            print >> simple_log_file, "{}\t{}".format(self.train_timestep, avg_reward)
+            print('Average test return {} after {} timestep of training.'.format(
+                avg_reward, self.train_timestep))
+            print >> test_log, "{}\t{}".format(self.train_timestep, avg_reward)
 
             # train
             reward_list = []
@@ -82,8 +84,11 @@ class Experiment(object):
                 reward, timestep = self.run_episode(test=False, monitor=False)
                 reward_list.append(reward)
                 self.train_timestep += timestep
+                print >> train_log, "{}\t{}".format(self.train_timestep, reward)
+                train_log.flush()
             avg_reward = np.mean(reward_list)
-            print('Average train return {} after {} timestep of training.'.format(avg_reward, self.train_timestep))
+            print('Average train return {} after {} timestep of training.'.format(
+                avg_reward, self.train_timestep))
 
         self.env.monitor.close()
 
