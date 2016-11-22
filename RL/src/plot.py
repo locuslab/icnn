@@ -1,83 +1,75 @@
-import tensorflow as tf
+#!/usr/bin/env python3
 
-flags = tf.app.flags
-FLAGS = flags.FLAGS
-
-flags.DEFINE_integer('runs', 10, 'total runs')
-flags.DEFINE_integer('total', 100000, 'total timesteps')
-flags.DEFINE_integer('train', 1000, 'training timesteps between testing')
-flags.DEFINE_string('data', '.', 'dir contains outputs of DDPG, NAF and ICNN')
-flags.DEFINE_float('min', 0, 'y axis min')
-flags.DEFINE_float('max', 1, 'y axis max')
-
-folders = [
-    [FLAGS.data + '/DDPG/%d' % i for i in xrange(FLAGS.runs)],
-    [FLAGS.data + '/NAF/%d' % i for i in xrange(FLAGS.runs)],
-    [FLAGS.data + '/ICNN/%d' % i for i in xrange(FLAGS.runs)],
-]
-names = [
-    'DDPG',
-    'NAF',
-    'ICNN',
-]
-colors = [
-    'red',
-    'blue',
-    'green'
-]
-
-
-import matplotlib.pyplot as plt
+import argparse
+import os
 import numpy as np
 
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
 plt.style.use('bmh')
-fig, ax = plt.subplots(1, 1, figsize=(6, 5))
-plt.xlabel('Timestep')
-plt.ylabel('Reward')
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('data', type=str, help='dir contains outputs of DDPG, NAF and ICNN')
+    parser.add_argument('--xmax', type=float)
+    parser.add_argument('--ymin', type=float)
+    parser.add_argument('--ymax', type=float)
+    args = parser.parse_args()
+
+    names = ['DDPG', 'NAF', 'ICNN']
+    colors = ['red', 'blue', 'green']
+
+    fig, ax = plt.subplots(1, 1, figsize=(6, 5))
+    plt.xlabel('Timestep')
+    plt.ylabel('Reward')
+
+    lines = []
+    for name, color in zip(names, colors):
+        dirpath = os.path.join(args.data, name)
+        if os.path.isdir(dirpath):
+            X, Ymin, Ymax, Ymean = get_data(dirpath)
+            line, = plt.plot(X, Ymean, label=name, color=color)
+            lines.append(line)
+            plt.fill_between(X, Ymin, Ymax, alpha=0.1, color=color)
+    # plt.ylim([FLAGS.min, FLAGS.max])
+    # TODO
+    plt.legend(handles=lines, loc=2)
+    fname = os.path.join(args.data, 'result.pdf')
+    plt.savefig(fname)
+    print('Created {}'.format(fname))
 
 
-
-import os
-def get_data(folders, n=100, k=100):
-    X = [i * k for i in xrange(n)]
-    Y = []
-    for folder in folders:
-        with open(os.path.join(folder, 'log.txt')) as f:
-            lines = f.readlines()
-        lines = map(lambda x: map(float, x.split()), lines)
-        try:
-            x = np.asarray(lines)[:, 0].flatten()
-            y = np.asarray(lines)[:, 1].flatten()
-        except:
-            print folder
+def get_data(dirpath):
+    minX, maxX = None, None
+    X, Y = [], []
+    for d in os.listdir(dirpath):
+        logName = os.path.join(dirpath, d, 'log.txt')
+        if os.path.exists(logName):
+            data = np.loadtxt(logName)
+            x = data[:,0].ravel()
+            y = data[:,1].ravel()
+        else:
+            print("Log file not found for: {}".format(os.path.join(dirpath, d)))
             continue
-        z = np.ones(n) * -1e8
-        z[0] = y[0]
-        for u, v in zip(x[1:], y[1:]):
-            idx = int((u - 1) / k) + 1
-            if idx >= n:
-                break
-            z[idx] = v
-        for i in xrange(n):
-            if z[i] < -1e7:
-                z[i] = z[i - 1]
 
-        Y.append(z)
+        minX = np.min(x) if not minX else min(np.min(x), minX)
+        maxX = np.max(x) if not maxX else max(np.max(x), maxX)
+        X.append(x)
+        Y.append(y)
 
-    Y = np.asarray(Y)
+    xs = np.linspace(minX, maxX, 3000)
+
+    interpY = []
+    for x,y in zip(X,Y):
+        interpY.append(np.interp(xs, x, y))
+
+    Y = np.asarray(interpY)
     Ysdom = 1.96 * np.std(Y, axis=0) / np.sqrt(Y.shape[0])
     Ymean = np.mean(Y, axis=0)
 
-    return X, Ymean - Ysdom, Ymean + Ysdom, Ymean
+    return xs, Ymean - Ysdom, Ymean + Ysdom, Ymean
 
 
 if __name__ == '__main__':
-    lines = []
-    for name, item, color in zip(names, folders, colors):
-        X, Ymin, Ymax, Ymean = get_data(item, FLAGS.total / FLAGS.train, FLAGS.train)
-        line, = plt.plot(X, Ymean, label=name, color=color)
-        lines.append(line)
-        plt.fill_between(X, Ymin, Ymax, alpha=0.1, color=color)
-    plt.ylim([FLAGS.min, FLAGS.max])
-    plt.legend(handles=lines, loc=2)
-    plt.savefig(FLAGS.data + '/result.pdf')
+    main()
