@@ -60,8 +60,8 @@ class Experiment(object):
         pprint.pprint(self.env.spec.__dict__)
 
         self.agent = Agent(dimO, dimA=dimA)
-        test_log = open(os.path.join(FLAGS.outdir, 'log.txt'), 'w')
-        train_log = open(os.path.join(FLAGS.outdir, 'train.log.txt'), 'w')
+        test_log = open(os.path.join(FLAGS.outdir, 'test.log'), 'w')
+        train_log = open(os.path.join(FLAGS.outdir, 'train.log'), 'w')
 
         while self.train_timestep < FLAGS.total:
             # test

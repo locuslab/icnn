@@ -32,8 +32,7 @@ def main():
             line, = plt.plot(X, Ymean, label=name, color=color)
             lines.append(line)
             plt.fill_between(X, Ymin, Ymax, alpha=0.1, color=color)
-    # plt.ylim([FLAGS.min, FLAGS.max])
-    # TODO
+    plt.ylim([args.ymin, args.ymax])
     plt.legend(handles=lines, loc=2)
     fname = os.path.join(args.data, 'result.pdf')
     plt.savefig(fname)
@@ -45,13 +44,15 @@ def get_data(dirpath):
     X, Y = [], []
     for d in os.listdir(dirpath):
         logName = os.path.join(dirpath, d, 'log.txt')
-        if os.path.exists(logName):
-            data = np.loadtxt(logName)
-            x = data[:,0].ravel()
-            y = data[:,1].ravel()
-        else:
-            print("Log file not found for: {}".format(os.path.join(dirpath, d)))
-            continue
+        if not os.path.exists(logName):
+            logName = os.path.join(dirpath, d, 'test.log')
+            if not os.path.exists(logName):
+                print("Log file not found for: {}".format(os.path.join(dirpath, d)))
+                continue
+
+        data = np.loadtxt(logName)
+        x = data[:,0].ravel()
+        y = data[:,1].ravel()
 
         minX = np.min(x) if not minX else min(np.min(x), minX)
         maxX = np.max(x) if not maxX else max(np.max(x), maxX)
