@@ -131,7 +131,7 @@ class Agent:
             self.rm.enqueue(obs1, term, self.action, rew)
 
             if self.t > FLAGS.warmup:
-                for i in xrange(FLAGS.iter):
+                for i in range(FLAGS.iter):
                     loss = self.train()
 
     def train(self):

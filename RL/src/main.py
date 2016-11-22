@@ -66,7 +66,7 @@ class Experiment(object):
         while self.train_timestep < FLAGS.total:
             # test
             reward_list = []
-            for _ in xrange(FLAGS.test):
+            for _ in range(FLAGS.test):
                 reward, timestep = self.run_episode(
                     test=True, monitor=np.random.rand() < FLAGS.monitor)
                 reward_list.append(reward)
@@ -74,7 +74,8 @@ class Experiment(object):
             avg_reward = np.mean(reward_list)
             print('Average test return {} after {} timestep of training.'.format(
                 avg_reward, self.train_timestep))
-            print >> test_log, "{}\t{}".format(self.train_timestep, avg_reward)
+            test_log.write("{}\t{}\n".format(self.train_timestep, avg_reward))
+            test_log.flush()
 
             # train
             reward_list = []
@@ -84,7 +85,7 @@ class Experiment(object):
                 reward, timestep = self.run_episode(test=False, monitor=False)
                 reward_list.append(reward)
                 self.train_timestep += timestep
-                print >> train_log, "{}\t{}".format(self.train_timestep, reward)
+                train_log.write("{}\t{}\n".format(self.train_timestep, reward))
                 train_log.flush()
             avg_reward = np.mean(reward_list)
             print('Average train return {} after {} timestep of training.'.format(
