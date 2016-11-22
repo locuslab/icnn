@@ -62,8 +62,8 @@ class Agent:
 
         if FLAGS.icnn_opt == 'adam':
             q_target = tf.select(term2, rew, rew + discount * q2)
-            # q_target = tf.maximum(q - 1., q_target)
-            # q_target = tf.minimum(q + 1., q_target)
+            q_target = tf.maximum(q - 1., q_target)
+            q_target = tf.minimum(q + 1., q_target)
             q_target = tf.stop_gradient(q_target)
             td_error = q - q_target
         elif FLAGS.icnn_opt == 'bundle_entropy':
@@ -269,8 +269,8 @@ class Agent:
                 u = fc(prevU, szs[i], reuse=reuse, scope=s, regularizer=reg)
                 if i < nLayers-1:
                     u = tf.nn.relu(u)
-                    # assert(False)
-                    # u = bn(u, reuse=reuse, scope=s, name='bn')
+                    if FLAGS.icnn_bn:
+                        u = bn(u, reuse=reuse, scope=s, name='bn')
             us.append(u)
             prevU = u
 
