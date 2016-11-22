@@ -52,16 +52,16 @@ class Agent:
         act_grad, = tf.gradients(negQ, act)
         # q_entropy = q + entropy(act)
 
-        obs2 = tf.placeholder(tf.float32, [None, dimO], "obs2")
-        act2 = tf.placeholder(tf.float32, [None, dimA], "act2")
-        term2 = tf.placeholder(tf.bool, [None], "term2")
-        negQ2 = self.negQ(obs2, act2, reuse=True)
-        act2_grad, = tf.gradients(negQ2, act2)
-        q2 = -negQ2
+        obs_target = tf.placeholder(tf.float32, [None, dimO], "obs_target")
+        act_target = tf.placeholder(tf.float32, [None, dimA], "act_target")
+        term_target = tf.placeholder(tf.bool, [None], "term_target")
+        negQ_target = self.negQ(obs_target, act_target, reuse=True)
+        act_target_grad, = tf.gradients(negQ_target, act_target)
+        q_target = -negQ_target
         # q2_entropy = q2 + entropy(act2)
 
         if FLAGS.icnn_opt == 'adam':
-            q_target = tf.select(term2, rew, rew + discount * q2)
+            q_target = tf.select(term_target, rew, rew + discount * q_target)
             q_target = tf.maximum(q - 1., q_target)
             q_target = tf.minimum(q + 1., q_target)
             q_target = tf.stop_gradient(q_target)
@@ -103,10 +103,10 @@ class Agent:
 
         # tf functions
         with self.sess.as_default():
-            self._train = Fun([obs, act, rew, obs2, act2, term2],
+            self._train = Fun([obs, act, rew, obs_target, act_target, term_target],
                               [optimize_q, loss_q], summary_list, summary_writer)
-            self._opt_test = Fun([obs, act], [negQ, act_grad])
-            self._opt_train = Fun([obs2, act2], [negQ2, act2_grad])
+            self._fg = Fun([obs, act], [negQ, act_grad])
+            self._fg_target = Fun([obs_target, act_target], [negQ_target, act_target_grad])
             # self._opt_test_entr = Fun([obs, act], [loss_test_entr, act_grad_entr])
             # self._opt_train_entr = Fun([obs2, act2],
             #                            [loss_train2_entr, act2_grad_entr])
@@ -192,9 +192,9 @@ class Agent:
 
             if FLAGS.icnn_opt == 'adam':
                 # f = self._opt_test_entr
-                f = self._opt_test
+                f = self._fg
             elif FLAGS.icnn_opt == 'bundle_entropy':
-                f = self._opt_test
+                f = self._fg
             else:
                 raise RuntimeError("Unrecognized ICNN optimizer: "+FLAGS.icnn_opt)
 
@@ -230,9 +230,9 @@ class Agent:
             obs, act, rew, ob2, term2, info = self.rm.minibatch(size=FLAGS.bsize)
             if FLAGS.icnn_opt == 'adam':
                 # f = self._opt_train_entr
-                f = self._opt_train
+                f = self._fg_target
             elif FLAGS.icnn_opt == 'bundle_entropy':
-                f = self._opt_train
+                f = self._fg_target
             else:
                 raise RuntimeError("Unrecognized ICNN optimizer: "+FLAGS.icnn_opt)
             print('--- Optimizing for training')
