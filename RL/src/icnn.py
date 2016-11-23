@@ -47,7 +47,8 @@ class Agent:
         obs = tf.placeholder(tf.float32, [None, dimO], "obs")
         act = tf.placeholder(tf.float32, [None, dimA], "act")
         rew = tf.placeholder(tf.float32, [None], "rew")
-        negQ = self.negQ(obs, act)
+        with tf.variable_scope('q'):
+            negQ = self.negQ(obs, act)
         q = -negQ
         act_grad, = tf.gradients(negQ, act)
         # q_entropy = q + entropy(act)
@@ -55,7 +56,8 @@ class Agent:
         obs_target = tf.placeholder(tf.float32, [None, dimO], "obs_target")
         act_target = tf.placeholder(tf.float32, [None, dimA], "act_target")
         term_target = tf.placeholder(tf.bool, [None], "term_target")
-        negQ_target = self.negQ(obs_target, act_target, reuse=True)
+        with tf.variable_scope('q_target'):
+            negQ_target = self.negQ(obs_target, act_target)
         act_target_grad, = tf.gradients(negQ_target, act_target)
         q_target = -negQ_target
         # q2_entropy = q2 + entropy(act2)
@@ -78,33 +80,38 @@ class Agent:
         regLosses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
         loss_q = ms_td_error + l2norm*tf.reduce_sum(regLosses)
 
-        # q optimization
+        self.theta_ = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='q/')
+        self.theta_cvx_ = [v for v in self.theta_
+                           if 'proj' in v.name and 'W:' in v.name]
+        self.makeCvx = [v.assign(tf.abs(v)) for v in self.theta_cvx_]
+        # self.proj = [v.assign(tf.maximum(v, 0)) for v in self.theta_cvx_]
+        self.proj = [v.assign(tf.abs(v)) for v in self.theta_cvx_]
+
+        self.theta_target_ = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                               scope='q_target/')
+        update_target = [theta_target_i.assign_sub(tau*(theta_target_i-theta_i))
+                    for theta_i, theta_target_i in zip(self.theta_, self.theta_target_)]
+
         optim_q = tf.train.AdamOptimizer(learning_rate=learning_rate)
         grads_and_vars_q = optim_q.compute_gradients(loss_q)
         optimize_q = optim_q.apply_gradients(grads_and_vars_q)
 
-        self.theta_ = tf.trainable_variables()
-        self.theta_cvx_ = [v for v in self.theta_
-                           if 'proj' in v.name and 'W:' in v.name]
-        self.makeCvx = [v.assign(tf.abs(v)) for v in self.theta_cvx_]
-        self.proj = [v.assign(tf.maximum(v, 0)) for v in self.theta_cvx_]
-        # self.proj = [v.assign(tf.abs(v)) for v in self.theta_cvx_]
 
         summary_writer = tf.train.SummaryWriter(os.path.join(FLAGS.outdir, 'board'),
                                                 self.sess.graph)
-        summary_list = []
         if FLAGS.icnn_opt == 'adam':
-            summary_list.append(tf.scalar_summary('Qvalue', tf.reduce_mean(q)))
+            tf.scalar_summary('Qvalue', tf.reduce_mean(q))
         elif FLAGS.icnn_opt == 'bundle_entropy':
-            summary_list.append(tf.scalar_summary('Qvalue',
-                                                  tf.reduce_mean(q_entropy)))
-        summary_list.append(tf.scalar_summary('loss', ms_td_error))
-        summary_list.append(tf.scalar_summary('reward', tf.reduce_mean(rew)))
+            tf.scalar_summary('Qvalue', tf.reduce_mean(q_entropy))
+        tf.scalar_summary('loss', ms_td_error)
+        tf.scalar_summary('reward', tf.reduce_mean(rew))
+        merged = tf.merge_all_summaries()
 
         # tf functions
         with self.sess.as_default():
             self._train = Fun([obs, act, rew, obs_target, act_target, term_target],
-                              [optimize_q, loss_q], summary_list, summary_writer)
+                              [optimize_q, update_target, loss_q],
+                              merged, summary_writer)
             self._fg = Fun([obs, act], [negQ, act_grad])
             self._fg_target = Fun([obs_target, act_target], [negQ_target, act_target_grad])
             # self._opt_test_entr = Fun([obs, act], [loss_test_entr, act_grad_entr])
@@ -119,6 +126,8 @@ class Agent:
         else:
             self.sess.run(tf.initialize_all_variables())
             self.sess.run(self.makeCvx)
+            self.sess.run([theta_target_i.assign(theta_i)
+                    for theta_i, theta_target_i in zip(self.theta_, self.theta_target_)])
 
         self.sess.graph.finalize()
 
@@ -227,6 +236,8 @@ class Agent:
 
     def train(self):
         with self.sess.as_default():
+            print(self.sess.run(self.theta_[0])[:4,0])
+            print(self.sess.run(self.theta_target_[0])[:4,0])
             obs, act, rew, ob2, term2, info = self.rm.minibatch(size=FLAGS.bsize)
             if FLAGS.icnn_opt == 'adam':
                 # f = self._opt_train_entr
@@ -240,8 +251,8 @@ class Agent:
             act2 = self.opt(f, ob2)
             tflearn.is_training(True)
 
-            _, loss = self._train(obs, act, rew, ob2, act2, term2,
-                                  log=FLAGS.summary, global_step=self.t)
+            _, _, loss = self._train(obs, act, rew, ob2, act2, term2,
+                                     log=FLAGS.summary, global_step=self.t)
             self.sess.run(self.proj)
             return loss
 
@@ -271,6 +282,7 @@ class Agent:
                     u = tf.nn.relu(u)
                     if FLAGS.icnn_bn:
                         u = bn(u, reuse=reuse, scope=s, name='bn')
+            variable_summaries(u, suffix='u{}'.format(i))
             us.append(u)
             prevU = u
 
@@ -282,31 +294,37 @@ class Agent:
                 with tf.variable_scope('z{}_zu_u'.format(i)) as s:
                     zu_u = fc(prevU, szs[i-1], reuse=reuse, scope=s,
                               activation='relu', bias=True, regularizer=reg)
+                    variable_summaries(zu_u, suffix='zu_u{}'.format(i))
                 with tf.variable_scope('z{}_zu_proj'.format(i)) as s:
                     z_zu = fc(tf.mul(prevZ, zu_u), sz, reuse=reuse, scope=s,
                               bias=False, regularizer=reg)
+                    variable_summaries(z_zu, suffix='z_zu{}'.format(i))
                 z_zs.append(z_zu)
                 z_add.append(z_zu)
 
             with tf.variable_scope('z{}_yu_u'.format(i)) as s:
                 yu_u = fc(prevU, self.dimA, reuse=reuse, scope=s, bias=True,
                           regularizer=reg)
+                variable_summaries(yu_u, suffix='yu_u{}'.format(i))
             with tf.variable_scope('z{}_yu'.format(i)) as s:
                 z_yu = fc(tf.mul(y, yu_u), sz, reuse=reuse, scope=s, bias=False,
                           regularizer=reg)
                 z_ys.append(z_yu)
+                variable_summaries(z_yu, suffix='z_yu{}'.format(i))
             z_add.append(z_yu)
 
             with tf.variable_scope('z{}_u'.format(i)) as s:
-                z_u = fc(prevU, sz, reuse=reuse, scope=s, bias=True, regularizer=reg)
+                z_u = fc(prevU, sz, reuse=reuse, scope=s,
+                         bias=True, regularizer=reg)
+                variable_summaries(z_u, suffix='z_u{}'.format(i))
             z_us.append(z_u)
             z_add.append(z_u)
 
             z = tf.add_n(z_add)
-            variable_summaries(z, 'z{}_preact'.format(i))
+            variable_summaries(z, suffix='z{}_preact'.format(i))
             if i < nLayers:
                 z = tf.nn.relu(z)
-                variable_summaries(z, 'z{}_act'.format(i))
+                variable_summaries(z, suffix='z{}_act'.format(i))
 
             zs.append(z)
             prevU = us[i] if i < nLayers else None
@@ -328,6 +346,7 @@ class Fun:
     def __init__(self, inputs, outputs, summary_ops=None, summary_writer=None, session=None):
         self._inputs = inputs if type(inputs) == list else [inputs]
         self._outputs = outputs
+        # self._summary_op = tf.merge_summary(summary_ops) if type(summary_ops) == list else summary_ops
         self._summary_op = tf.merge_summary(summary_ops) if type(summary_ops) == list else summary_ops
         self._session = session or tf.get_default_session()
         self._writer = summary_writer
