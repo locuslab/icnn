@@ -1,8 +1,11 @@
 import tensorflow as tf
 
-def variable_summaries(var, name=None):
+def variable_summaries(var, name=None, suffix=None):
     if name is None:
-        name = var.name
+        if suffix is None:
+            name = var.name
+        else:
+            name = '/'.join(var.name.split('/')[:-1])+'/'+suffix
     with tf.name_scope('summaries'):
         mean = tf.reduce_mean(var)
         tf.scalar_summary('mean/' + name, mean)
