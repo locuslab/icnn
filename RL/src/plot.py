@@ -13,7 +13,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('data', type=str, help='dir contains outputs of DDPG, NAF and ICNN')
     parser.add_argument('--xmax', type=float)
-    parser.add_argument('--ymin', type=float)
+    parser.add_argument('--ymin', type=float, default=0.0)
     parser.add_argument('--ymax', type=float)
     args = parser.parse_args()
 
@@ -59,7 +59,7 @@ def get_data(dirpath):
         X.append(x)
         Y.append(y)
 
-    xs = np.linspace(minX, maxX, 3000)
+    xs = np.linspace(minX, maxX, 10000)
 
     interpY = []
     for x,y in zip(X,Y):
