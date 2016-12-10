@@ -14,6 +14,8 @@ import runtime_env
 
 import time
 
+import setproctitle
+
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('env', '', 'gym environment')
@@ -28,6 +30,9 @@ flags.DEFINE_string('model', 'ICNN', 'reinforcement learning model[DDPG, NAF, IC
 flags.DEFINE_integer('tfseed', 0, 'random seed for tensorflow')
 flags.DEFINE_integer('gymseed', 0, 'random seed for openai gym')
 flags.DEFINE_integer('npseed', 0, 'random seed for numpy')
+
+setproctitle.setproctitle('ICNN.RL.{}.{}.{}'.format(
+    FLAGS.env,FLAGS.model,FLAGS.tfseed))
 
 if FLAGS.model == 'DDPG':
     import ddpg
@@ -56,7 +61,6 @@ class Experiment(object):
 
         dimO = self.env.observation_space.shape
         dimA = self.env.action_space.shape
-        print(dimO, dimA)
         pprint.pprint(self.env.spec.__dict__)
 
         self.agent = Agent(dimO, dimA=dimA)
@@ -79,8 +83,8 @@ class Experiment(object):
 
             # train
             reward_list = []
-            last_checkpoint = self.train_timestep / FLAGS.train
-            while self.train_timestep / FLAGS.train == last_checkpoint:
+            last_checkpoint = np.floor(self.train_timestep / FLAGS.train)
+            while np.floor(self.train_timestep / FLAGS.train) == last_checkpoint:
                 print('=== Running episode')
                 reward, timestep = self.run_episode(test=False, monitor=False)
                 reward_list.append(reward)
