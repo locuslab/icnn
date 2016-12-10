@@ -359,7 +359,8 @@ class Agent:
             if i > 0:
                 with tf.variable_scope('z{}_zu_u'.format(i)) as s:
                     zu_u = fc(prevU, szs[i-1], reuse=reuse, scope=s,
-                              activation='relu', bias=True, regularizer=reg)
+                              activation='relu', bias=True,
+                              regularizer=reg, bias_init=tf.constant_initializer(1.))
                     variable_summaries(zu_u, suffix='zu_u{}'.format(i))
                 with tf.variable_scope('z{}_zu_proj'.format(i)) as s:
                     z_zu = fc(tf.mul(prevZ, zu_u), sz, reuse=reuse, scope=s,
@@ -382,7 +383,7 @@ class Agent:
             with tf.variable_scope('z{}_u'.format(i)) as s:
                 z_u = fc(prevU, sz, reuse=reuse, scope=s,
                          bias=True, regularizer=reg,
-                         bias_init=tf.constant_initializer(1.))
+                         bias_init=tf.constant_initializer(0.))
                 variable_summaries(z_u, suffix='z_u{}'.format(i))
             z_us.append(z_u)
             z_add.append(z_u)
