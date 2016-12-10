@@ -9,6 +9,14 @@ import bundle_entropy
 from replay_memory import ReplayMemory
 from helper import variable_summaries
 
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
+plt.style.use('bmh')
+from matplotlib.mlab import griddata
+
+from sklearn.decomposition import PCA
+
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
@@ -42,32 +50,36 @@ class Agent:
             allow_soft_placement=True,
             gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.1)))
 
-        self.noise = np.ones(dimA)
+        self.noise = np.zeros(self.dimA)
 
         obs = tf.placeholder(tf.float32, [None, dimO], "obs")
         act = tf.placeholder(tf.float32, [None, dimA], "act")
         rew = tf.placeholder(tf.float32, [None], "rew")
         with tf.variable_scope('q'):
             negQ = self.negQ(obs, act)
+        negQ_entr = negQ - entropy(act)
         q = -negQ
+        q_entr = -negQ_entr
         act_grad, = tf.gradients(negQ, act)
-        # q_entropy = q + entropy(act)
+        act_grad_entr, = tf.gradients(negQ_entr, act)
 
         obs_target = tf.placeholder(tf.float32, [None, dimO], "obs_target")
         act_target = tf.placeholder(tf.float32, [None, dimA], "act_target")
         term_target = tf.placeholder(tf.bool, [None], "term_target")
         with tf.variable_scope('q_target'):
             negQ_target = self.negQ(obs_target, act_target)
+        negQ_entr_target = negQ_target - entropy(act_target)
         act_target_grad, = tf.gradients(negQ_target, act_target)
+        act_entr_target_grad, = tf.gradients(negQ_entr_target, act_target)
         q_target = -negQ_target
-        # q2_entropy = q2 + entropy(act2)
+        q_target_entr = -negQ_entr_target
 
         if FLAGS.icnn_opt == 'adam':
-            q_target = tf.select(term_target, rew, rew + discount * q_target)
-            q_target = tf.maximum(q - 1., q_target)
-            q_target = tf.minimum(q + 1., q_target)
-            q_target = tf.stop_gradient(q_target)
-            td_error = q - q_target
+            y = tf.select(term_target, rew, rew + discount * q_target)
+            y = tf.maximum(q - 1., y)
+            y = tf.minimum(q + 1., y)
+            y = tf.stop_gradient(y)
+            td_error = q - y
         elif FLAGS.icnn_opt == 'bundle_entropy':
             raise RuntimError("Needs checking.")
             q_target = tf.select(term2, rew, rew + discount * q2_entropy)
@@ -84,8 +96,8 @@ class Agent:
         self.theta_cvx_ = [v for v in self.theta_
                            if 'proj' in v.name and 'W:' in v.name]
         self.makeCvx = [v.assign(tf.abs(v)) for v in self.theta_cvx_]
-        # self.proj = [v.assign(tf.maximum(v, 0)) for v in self.theta_cvx_]
-        self.proj = [v.assign(tf.abs(v)) for v in self.theta_cvx_]
+        self.proj = [v.assign(tf.maximum(v, 0)) for v in self.theta_cvx_]
+        # self.proj = [v.assign(tf.abs(v)) for v in self.theta_cvx_]
 
         self.theta_target_ = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                                scope='q_target/')
@@ -102,7 +114,7 @@ class Agent:
         if FLAGS.icnn_opt == 'adam':
             tf.scalar_summary('Qvalue', tf.reduce_mean(q))
         elif FLAGS.icnn_opt == 'bundle_entropy':
-            tf.scalar_summary('Qvalue', tf.reduce_mean(q_entropy))
+            tf.scalar_summary('Qvalue', tf.reduce_mean(q_entr))
         tf.scalar_summary('loss', ms_td_error)
         tf.scalar_summary('reward', tf.reduce_mean(rew))
         merged = tf.merge_all_summaries()
@@ -114,9 +126,9 @@ class Agent:
                               merged, summary_writer)
             self._fg = Fun([obs, act], [negQ, act_grad])
             self._fg_target = Fun([obs_target, act_target], [negQ_target, act_target_grad])
-            # self._opt_test_entr = Fun([obs, act], [loss_test_entr, act_grad_entr])
-            # self._opt_train_entr = Fun([obs2, act2],
-            #                            [loss_train2_entr, act2_grad_entr])
+            self._fg_entr = Fun([obs, act], [negQ_entr, act_grad_entr])
+            self._fg_entr_target = Fun([obs_target, act_target],
+                                       [negQ_entr_target, act_entr_target_grad])
 
         # initialize tf variables
         self.saver = tf.train.Saver(max_to_keep=1)
@@ -145,7 +157,9 @@ class Agent:
 
         return act
 
-    def adam(self, func, obs):
+    def adam(self, func, obs, plot=False):
+        # if npr.random() < 1./20:
+        #     plot = True
         b1 = 0.9
         b2 = 0.999
         lam = 0.5
@@ -158,16 +172,31 @@ class Agent:
 
         b1t, b2t = 1., 1.
         act_best, a_diff, f_best = [None]*3
+        hist = {'act': [], 'f': [], 'g': []}
         for i in range(1000):
             f, g = func(obs, act)
+            if plot:
+                hist['act'].append(act.copy())
+                hist['f'].append(f)
+                hist['g'].append(g)
 
             if i == 0:
                 act_best = act.copy()
                 f_best = f.copy()
             else:
+                prev_act_best = act_best.copy()
                 I = (f < f_best)
                 act_best[I] = act[I]
                 f_best[I] = f[I]
+                a_diff_i = np.mean(np.linalg.norm(act_best - prev_act_best, axis=1))
+                a_diff = a_diff_i if a_diff is None \
+                         else lam*a_diff + (1.-lam)*a_diff_i
+                # print(a_diff_i, a_diff, np.sum(f))
+                if a_diff < 1e-3 and i > 5:
+                    print('  + Adam took {} iterations'.format(i))
+                    if plot:
+                        self.adam_plot(func, obs, hist)
+                    return act_best
 
             m = b1 * m + (1. - b1) * g
             v = b2 * v + (1. - b2) * (g * g)
@@ -176,22 +205,60 @@ class Agent:
             mhat = m/(1.-b1t)
             vhat = v/(1.-b2t)
 
-            prev_act = act.copy()
             act -= alpha * mhat / (np.sqrt(v) + eps)
-            act = np.clip(act, -1, 1)
+            # act = np.clip(act, -1, 1)
+            act = np.clip(act, -1.+1e-8, 1.-1e-8)
 
-            a_diff_i = np.mean(np.linalg.norm(act - prev_act, axis=1))
-            a_diff = a_diff_i if a_diff is None else lam*a_diff + (1.-lam)*a_diff_i
-            # print(a_diff_i, a_diff, np.sum(f))
-            if a_diff_i == 0 or a_diff < 1e-3:
-                print('  + ADAM took {} iterations'.format(i))
-                return act_best
-
-        print('  + Warning: ADAM did not converge.')
+        print('  + Warning: Adam did not converge.')
+        if plot:
+            self.adam_plot(func, obs, hist)
         return act_best
 
+    def adam_plot(self, func, obs, hist):
+        hist['act'] = np.array(hist['act']).T
+        hist['f'] = np.array(hist['f']).T
+        hist['g'] = np.array(hist['g']).T
+        if self.dimA == 1:
+            xs = np.linspace(-1.+1e-8, 1.-1e-8, 100)
+            ys = [func(obs[[0],:], [[xi]])[0] for xi in xs]
+            fig = plt.figure()
+            plt.plot(xs, ys)
+            plt.plot(hist['act'][0,0,:], hist['f'][0,:], label='Adam')
+            plt.legend()
+            fname = os.path.join(FLAGS.outdir, 'adamPlt.png')
+            print("Saving Adam plot to {}".format(fname))
+            plt.savefig(fname)
+            plt.close(fig)
+        elif self.dimA == 2:
+            assert(False)
+        else:
+            xs = npr.uniform(-1., 1., (5000, self.dimA))
+            ys = np.array([func(obs[[0],:], [xi])[0] for xi in xs])
+            epi = np.hstack((xs, ys))
+            pca = PCA(n_components=2).fit(epi)
+            W = pca.components_[:,:-1]
+            xs_proj = xs.dot(W.T)
+            fig = plt.figure()
+
+            X = Y = np.linspace(xs_proj.min(), xs_proj.max(), 100)
+            Z = griddata(xs_proj[:,0], xs_proj[:,1], ys.ravel(),
+                         X, Y, interp='linear')
+
+            plt.contourf(X, Y, Z, 15)
+            plt.colorbar()
+
+            adam_x = hist['act'][:,0,:].T
+            adam_x = adam_x.dot(W.T)
+            plt.plot(adam_x[:,0], adam_x[:,1], label='Adam', color='k')
+            plt.legend()
+
+            fname = os.path.join(FLAGS.outdir, 'adamPlt.png')
+            print("Saving Adam plot to {}".format(fname))
+            plt.savefig(fname)
+            plt.close(fig)
+
     def reset(self, obs):
-        self.noise = np.ones(self.dimA)
+        self.noise = np.zeros(self.dimA)
         self.observation = obs  # initial observation
 
     def act(self, test=False):
@@ -200,7 +267,7 @@ class Agent:
             obs = np.expand_dims(self.observation, axis=0)
 
             if FLAGS.icnn_opt == 'adam':
-                # f = self._opt_test_entr
+                # f = self._fg_entr
                 f = self._fg
             elif FLAGS.icnn_opt == 'bundle_entropy':
                 f = self._fg
@@ -215,8 +282,8 @@ class Agent:
                 self.noise -= FLAGS.outheta*self.noise - \
                               FLAGS.ousigma*npr.randn(self.dimA)
                 action += self.noise
+            action = np.clip(action, -1, 1)
 
-            # action = np.clip(action, -1, 1)
             self.action = np.atleast_1d(np.squeeze(action, axis=0))
             return self.action
 
@@ -236,11 +303,10 @@ class Agent:
 
     def train(self):
         with self.sess.as_default():
-            print(self.sess.run(self.theta_[0])[:4,0])
-            print(self.sess.run(self.theta_target_[0])[:4,0])
             obs, act, rew, ob2, term2, info = self.rm.minibatch(size=FLAGS.bsize)
             if FLAGS.icnn_opt == 'adam':
                 # f = self._opt_train_entr
+                # f = self._fg_entr_target
                 f = self._fg_target
             elif FLAGS.icnn_opt == 'bundle_entropy':
                 f = self._fg_target
@@ -304,7 +370,7 @@ class Agent:
 
             with tf.variable_scope('z{}_yu_u'.format(i)) as s:
                 yu_u = fc(prevU, self.dimA, reuse=reuse, scope=s, bias=True,
-                          regularizer=reg)
+                          regularizer=reg, bias_init=tf.constant_initializer(1.))
                 variable_summaries(yu_u, suffix='yu_u{}'.format(i))
             with tf.variable_scope('z{}_yu'.format(i)) as s:
                 z_yu = fc(tf.mul(y, yu_u), sz, reuse=reuse, scope=s, bias=False,
@@ -315,7 +381,8 @@ class Agent:
 
             with tf.variable_scope('z{}_u'.format(i)) as s:
                 z_u = fc(prevU, sz, reuse=reuse, scope=s,
-                         bias=True, regularizer=reg)
+                         bias=True, regularizer=reg,
+                         bias_init=tf.constant_initializer(1.))
                 variable_summaries(z_u, suffix='z_u{}'.format(i))
             z_us.append(z_u)
             z_add.append(z_u)
