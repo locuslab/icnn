@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -x -e
+cd $(dirname $0)/..
+
 N=10
 total=100000
 trainTimestep=1000
@@ -8,13 +11,14 @@ task="HalfCheetah-v1"
 outdir="output/HalfCheetah-v1/"
 monitor=-1
 
-#DDPG
+# DDPG
 for ((i=0;i<$N;i++))
 do
   python3 src/main.py --model DDPG --env $task --outdir $outdir/DDPG/$i \
     --total $total --train $trainTimestep --test $testEpisode \
     --tfseed $i --gymseed $i --npseed $i --monitor $monitor --l2norm 0.01
 done
+
 
 #NAF
 for ((i=0;i<$N;i++))

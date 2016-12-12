@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -x -e
+cd $(dirname $0)/..
+
 N=10
 total=10000
 trainTimestep=100

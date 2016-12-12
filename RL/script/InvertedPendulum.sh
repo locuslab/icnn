@@ -1,11 +1,15 @@
 #!/bin/bash
 
+set -x -e
+cd $(dirname $0)/..
+
 N=10
 total=10000
 trainTimestep=100
 testEpisode=1
 task="InvertedPendulum-v1"
-outdir="output/InvertedPendulum-v1/"
+# outdir="output/InvertedPendulum-v1/"
+outdir="output/test"
 monitor=-1
 
 # #DDPG
