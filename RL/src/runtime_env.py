@@ -63,7 +63,7 @@ class Executor:
     def on_kill(self, *args):
         self.info['run_status'] = 'aborted'
         print("Experiment aborted")
-        sys.exit()
+        sys.exit(-1)
 
     def execute(self):
         """ execute locally """
