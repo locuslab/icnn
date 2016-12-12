@@ -75,11 +75,11 @@ class Agent:
         q_target_entr = -negQ_entr_target
 
         if FLAGS.icnn_opt == 'adam':
-            y = tf.select(term_target, rew, rew + discount * q_target)
-            y = tf.maximum(q - 1., y)
-            y = tf.minimum(q + 1., y)
+            y = tf.select(term_target, rew, rew + discount * q_target_entr)
+            y = tf.maximum(q_entr - 1., y)
+            y = tf.minimum(q_entr + 1., y)
             y = tf.stop_gradient(y)
-            td_error = q - y
+            td_error = q_entr - y
         elif FLAGS.icnn_opt == 'bundle_entropy':
             raise RuntimError("Needs checking.")
             q_target = tf.select(term2, rew, rew + discount * q2_entropy)
@@ -90,7 +90,7 @@ class Agent:
         ms_td_error = tf.reduce_mean(tf.square(td_error), 0)
 
         regLosses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
-        loss_q = ms_td_error + l2norm*tf.reduce_sum(regLosses)
+        loss_q = ms_td_error + l2norm*tf.reduce_mean(regLosses)
 
         self.theta_ = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='q/')
         self.theta_cvx_ = [v for v in self.theta_
@@ -267,8 +267,8 @@ class Agent:
             obs = np.expand_dims(self.observation, axis=0)
 
             if FLAGS.icnn_opt == 'adam':
-                # f = self._fg_entr
-                f = self._fg
+                f = self._fg_entr
+                # f = self._fg
             elif FLAGS.icnn_opt == 'bundle_entropy':
                 f = self._fg
             else:
@@ -306,8 +306,8 @@ class Agent:
             obs, act, rew, ob2, term2, info = self.rm.minibatch(size=FLAGS.bsize)
             if FLAGS.icnn_opt == 'adam':
                 # f = self._opt_train_entr
-                # f = self._fg_entr_target
-                f = self._fg_target
+                f = self._fg_entr_target
+                # f = self._fg_target
             elif FLAGS.icnn_opt == 'bundle_entropy':
                 f = self._fg_target
             else:
@@ -327,6 +327,7 @@ class Agent:
         assert(len(szs) >= 1)
         fc = tflearn.fully_connected
         bn = tflearn.batch_normalization
+        lrelu = tflearn.activations.leaky_relu
 
         if reuse:
             tf.get_variable_scope().reuse_variables()
@@ -391,7 +392,8 @@ class Agent:
             z = tf.add_n(z_add)
             variable_summaries(z, suffix='z{}_preact'.format(i))
             if i < nLayers:
-                z = tf.nn.relu(z)
+                # z = tf.nn.relu(z)
+                z = lrelu(z, alpha=FLAGS.lrelu)
                 variable_summaries(z, suffix='z{}_act'.format(i))
 
             zs.append(z)
