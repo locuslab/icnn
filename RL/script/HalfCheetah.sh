@@ -1,3 +1,5 @@
+#!/bin/bash
+
 N=10
 total=100000
 trainTimestep=1000
@@ -9,7 +11,7 @@ monitor=-1
 #DDPG
 for ((i=0;i<$N;i++))
 do
-  python src/main.py --model DDPG --env $task --outdir $outdir/DDPG/$i \
+  python3 src/main.py --model DDPG --env $task --outdir $outdir/DDPG/$i \
     --total $total --train $trainTimestep --test $testEpisode \
     --tfseed $i --gymseed $i --npseed $i --monitor $monitor --l2norm 0.01
 done
@@ -17,7 +19,7 @@ done
 #NAF
 for ((i=0;i<$N;i++))
 do
-  python src/main.py --model NAF --env $task --outdir $outdir/NAF/$i \
+  python3 src/main.py --model NAF --env $task --outdir $outdir/NAF/$i \
     --total $total --train $trainTimestep --test $testEpisode --reward_k 0.1\
     --tfseed $i --gymseed $i --npseed $i  --monitor $monitor \
     --initstd 0.007 --naf_bn True
@@ -26,10 +28,9 @@ done
 #ICNN
 for ((i=0;i<$N;i++))
 do
-  python src/main.py --model ICNN --env $task --outdir $outdir/ICNN/$i \
+  python3 src/main.py --model ICNN --env $task --outdir $outdir/ICNN/$i \
     --total $total --train $trainTimestep --test $testEpisode --reward_k 0.4\
     --tfseed $i --gymseed $i --npseed $i --monitor $monitor --l2norm 0.001 --icnn_bn True
 done
 
-#plot
-python src/plot.py --runs $N --total $total --train $trainTimestep --data $outdir --min -500 --max 5500
+python3 src/plot.py --ymin -500 --ymax 5500 $outdir

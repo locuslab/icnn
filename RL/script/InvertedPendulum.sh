@@ -1,3 +1,5 @@
+#!/bin/bash
+
 N=10
 total=10000
 trainTimestep=100
@@ -6,18 +8,18 @@ task="InvertedPendulum-v1"
 outdir="output/InvertedPendulum-v1/"
 monitor=-1
 
-#DDPG
+# #DDPG
 for ((i=0;i<$N;i++))
 do
-  python src/main.py --model DDPG --env $task --outdir $outdir/DDPG/$i \
+  python3 src/main.py --model DDPG --env $task --outdir $outdir/DDPG/$i \
     --total $total --train $trainTimestep --test $testEpisode --reward_k 0.3 \
     --tfseed $i --gymseed $i --npseed $i --monitor $monitor
 done
 
-#NAF
+# #NAF
 for ((i=0;i<$N;i++))
 do
-  python src/main.py --model NAF --env $task --outdir $outdir/NAF/$i \
+  python3 src/main.py --model NAF --env $task --outdir $outdir/NAF/$i \
     --total $total --train $trainTimestep --test $testEpisode --reward_k 0.2 \
     --tfseed $i --gymseed $i --npseed $i --monitor $monitor
 done
@@ -25,10 +27,9 @@ done
 #ICNN
 for ((i=0;i<$N;i++))
 do
-  python src/main.py --model ICNN --env $task --outdir $outdir/ICNN/$i \
-    --total $total --train $trainTimestep --test $testEpisode --reward_k 0.3\
-    --tfseed $i --gymseed $i --npseed $i --monitor $monitor
+  python3 src/main.py --model ICNN --env $task --outdir $outdir/ICNN/$i \
+    --total $total --train $trainTimestep --test $testEpisode --reward_k 0.3 \
+    --tfseed $i --gymseed $i --npseed $i --monitor $monitor --l2norm 0.0
 done
 
-#plot
-python src/plot.py --runs $N --total $total --train $trainTimestep --data $outdir --min 0 --max 1100
+python3 src/plot.py --ymin 0 --ymax 1100 $outdir
