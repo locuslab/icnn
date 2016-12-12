@@ -8,8 +8,7 @@ total=10000
 trainTimestep=100
 testEpisode=1
 task="InvertedPendulum-v1"
-# outdir="output/InvertedPendulum-v1/"
-outdir="output/test"
+outdir="output/InvertedPendulum-v1/"
 monitor=-1
 
 # #DDPG
