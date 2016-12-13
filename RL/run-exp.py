@@ -59,8 +59,9 @@ def runExp(args, alg, algDir, seed):
 
     if os.path.exists(expDir):
         print("==============")
-        print("Skipping {}, already exists.".format('.'.join(alg, seed)))
+        print("Skipping {}.{}, already exists.".format(alg, seed))
         print("==============")
+        return
 
     nTestEpisode = 1
     monitor = -1
