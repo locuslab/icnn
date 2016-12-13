@@ -27,6 +27,6 @@ flags.DEFINE_string('icnn_opt', 'adam',
 
 flags.DEFINE_integer('thread', 1, 'tensorflow threads')
 
-flags.DEFINE_boolean('summary', True, 'use tensorboard log')
+flags.DEFINE_boolean('summary', False, 'use tensorboard log')
 
 flags.DEFINE_float('initstd', 0.01, 'weight init std (DDPG uses its own initialization)')
