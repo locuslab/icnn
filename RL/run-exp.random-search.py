@@ -69,7 +69,6 @@ def runAlg(args, alg, allDir):
 
 def analyze(args, allDir):
     with open(os.path.join(allDir, 'analysis.txt'), 'w') as f:
-        f.write("Format: [experiment, max test loss val (idx)]\n")
         for alg in all_algs:
             algDir = os.path.join(allDir, alg)
             if os.path.exists(algDir):
@@ -77,10 +76,10 @@ def analyze(args, allDir):
                 for exp in sorted(os.listdir(algDir)):
                     expDir = os.path.join(algDir, exp)
                     testLoss = np.loadtxt(os.path.join(expDir, 'test.log'))
-                    vals = testLoss[:,1]
+                    vals = testRew[:,1]
                     maxVal, maxValI = vals.max(), vals.argmax()
-                    timestep = testLoss[maxValI,0]
-                    f.write('  + Experiment {}: Max test loss of {} at timestep {}\n'.format(exp, maxVal, timestep))
+                    timestep = testRew[maxValI,0]
+                    f.write('  + Experiment {}: Max test reward of {} at timestep {}\n'.format(exp, maxVal, timestep))
 
 def runExp(args, alg, algDir, expNum, hp_alg):
     hp = hyperparams[args.task]
