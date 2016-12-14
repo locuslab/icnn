@@ -14,8 +14,9 @@ rlDir = os.path.dirname(os.path.realpath(__file__))
 plotSrc = os.path.join(rlDir, 'src', 'plot.py')
 mainSrc = os.path.join(rlDir, 'src', 'main.py')
 
+all_algs = ['DDPG', 'NAF', 'ICNN']
+
 def main():
-    all_algs = ['DDPG', 'NAF', 'ICNN']
     parser = argparse.ArgumentParser()
     parser.add_argument('task', type=str,
                         choices=['HalfCheetah', 'Hopper', 'InvertedDoublePendulum',
@@ -25,6 +26,7 @@ def main():
     parser.add_argument('--nSamples', type=int, default=10)
     parser.add_argument('--save', type=str)
     parser.add_argument('--overwrite', action='store_true')
+    parser.add_argument('--analyze', action='store_true')
 
     args = parser.parse_args()
 
@@ -33,9 +35,12 @@ def main():
         if args.overwrite:
             shutil.rmtree(allDir)
 
-    algs = [args.alg] if args.alg is not None else all_algs
-    for alg in algs:
-        runAlg(args, alg, allDir)
+    if args.analyze:
+        analyze(args, allDir)
+    else:
+        algs = [args.alg] if args.alg is not None else all_algs
+        for alg in algs:
+            runAlg(args, alg, allDir)
 
 def runAlg(args, alg, allDir):
     algDir = os.path.join(allDir, alg)
@@ -48,17 +53,19 @@ def runAlg(args, alg, allDir):
         if l2norm < 1e-8:
             l2norm = 0.
         runExp(args, alg, algDir, seed, reward_k, l2norm)
-        plot(args, allDir)
+        analyze(args, allDir)
 
-def plot(args, allDir):
-    pltCmd = [pythonCmd, plotSrc]
-    hp = hyperparams[args.task]
-    if 'ymin' in hp:
-        pltCmd += ['--ymin', str(hp['ymin'])]
-    if 'ymax' in hp:
-        pltCmd += ['--ymax', str(hp['ymax'])]
-    pltCmd.append(allDir)
-    os.system(' '.join(pltCmd))
+def analyze(args, allDir):
+    with open(os.path.join(allDir, 'analysis.txt'), 'w') as f:
+        f.write("Format: [experiment, max test loss]\n")
+        for alg in all_algs:
+            algDir = os.path.join(allDir, alg)
+            if os.path.exists(algDir):
+                f.write("\n=== {} ===\n".format(alg))
+                for exp in os.listdir(algDir):
+                    expDir = os.path.join(algDir, exp)
+                    testLoss = np.loadtxt(os.path.join(expDir, 'test.log'))
+                    f.write('  + {}: {}\n'.format(exp, testLoss[:,1].max()))
 
 def runExp(args, alg, algDir, seed, reward_k=1., l2norm=0.):
     hp = hyperparams[args.task]
