@@ -23,7 +23,7 @@ def main():
                                  'InvertedPendulum', 'Reacher', 'Swimmer'],
                         help='(Every task is currently v1.)')
     parser.add_argument('--alg', type=str, choices=all_algs)
-    parser.add_argument('--nSamples', type=int, default=10)
+    parser.add_argument('--nSamples', type=int, default=50)
     parser.add_argument('--save', type=str)
     parser.add_argument('--overwrite', action='store_true')
     parser.add_argument('--analyze', action='store_true')
@@ -34,6 +34,7 @@ def main():
     if os.path.exists(allDir):
         if args.overwrite:
             shutil.rmtree(allDir)
+    os.makedirs(allDir, exist_ok=True)
 
     if args.analyze:
         analyze(args, allDir)
@@ -47,17 +48,27 @@ def runAlg(args, alg, allDir):
 
     np.random.seed(0)
     for i in range(args.nSamples):
-        seed = 0
-        reward_k = 10.**npr.randint(-3, 0+1)
-        l2norm = 10.**npr.randint(-10, -3+1)
-        if l2norm < 1e-8:
-            l2norm = 0.
-        runExp(args, alg, algDir, seed, reward_k, l2norm)
+        hp_alg = {
+            'reward_k': 10.**npr.uniform(-4, 1),
+            'l2norm': 10.**npr.uniform(-10, -2),
+            'pl2norm': 10.**npr.uniform(-10, -2),
+            'rate': 10.**npr.uniform(-4, -1),
+            'prate': 10.**npr.uniform(-4, -1),
+            'outheta': np.maximum(1e-8, npr.normal(loc=0.15, scale=0.1)),
+            'ousigma': np.maximum(1e-8, npr.normal(loc=0.1, scale=0.05)),
+            'lrelu': 10.**npr.uniform(-3, -1),
+            'naf_bn': bool(npr.binomial(1, 0.5)),
+            'icnn_bn': bool(npr.binomial(1, 0.5))
+        }
+        if hp_alg['l2norm'] < 1e-8: hp_alg['l2norm'] = 0.
+        if hp_alg['pl2norm'] < 1e-8: hp_alg['pl2norm'] = 0.
+
+        runExp(args, alg, algDir, i, hp_alg)
         analyze(args, allDir)
 
 def analyze(args, allDir):
     with open(os.path.join(allDir, 'analysis.txt'), 'w') as f:
-        f.write("Format: [experiment, max test loss]\n")
+        f.write("Format: [experiment, max test loss val (idx)]\n")
         for alg in all_algs:
             algDir = os.path.join(allDir, alg)
             if os.path.exists(algDir):
@@ -65,22 +76,23 @@ def analyze(args, allDir):
                 for exp in os.listdir(algDir):
                     expDir = os.path.join(algDir, exp)
                     testLoss = np.loadtxt(os.path.join(expDir, 'test.log'))
-                    f.write('  + {}: {}\n'.format(exp, testLoss[:,1].max()))
+                    vals = testLoss[:,1]
+                    maxVal, maxValI = vals.max(), vals.argmax()
+                    f.write('  + Experiment {}: Max test loss of {} at timestep {}\n'.format(exp, maxVal, maxValI))
 
-def runExp(args, alg, algDir, seed, reward_k=1., l2norm=0.):
+def runExp(args, alg, algDir, expNum, hp_alg):
     hp = hyperparams[args.task]
-    hp_alg = {'reward_k': reward_k, 'l2norm': l2norm}
-    expDir = os.path.join(algDir, "seed={},reward_k={:.0e},l2norm={:.0e}".format(
-        seed, reward_k, l2norm))
+    expDir = os.path.join(algDir, str(expNum))
 
     if os.path.exists(expDir):
         print("==============")
-        print("Skipping {}.{}, already exists.".format(alg, seed))
+        print("Skipping {}.{}, already exists.".format(alg, expNum))
         print("==============")
         return
 
     nTestEpisode = 1
     monitor = -1
+    seed = 0
     cmd = [pythonCmd, mainSrc, '--model', alg, '--env', args.task+'-v1',
            '--outdir', expDir,
            '--total', str(hp['total']), '--train', str(hp['testInterval']),
