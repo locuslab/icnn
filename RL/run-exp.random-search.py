@@ -19,8 +19,9 @@ all_algs = ['DDPG', 'NAF', 'ICNN']
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('task', type=str,
-                        choices=['HalfCheetah', 'Hopper', 'InvertedDoublePendulum',
-                                 'InvertedPendulum', 'Reacher', 'Swimmer'],
+                        choices=['InvertedPendulum', 'InvertedDoublePendulum',
+                            'Reacher', 'HalfCheetah', 'Swimmer', 'Hopper',
+                                 'Walker2d', 'Ant', 'Humanoid', 'HumanoidStandup'],
                         help='(Every task is currently v1.)')
     parser.add_argument('--alg', type=str, choices=all_algs)
     parser.add_argument('--nSamples', type=int, default=50)
@@ -73,7 +74,7 @@ def analyze(args, allDir):
             algDir = os.path.join(allDir, alg)
             if os.path.exists(algDir):
                 f.write("\n=== {} ===\n".format(alg))
-                for exp in os.listdir(algDir):
+                for exp in sorted(os.listdir(algDir)):
                     expDir = os.path.join(algDir, exp)
                     testLoss = np.loadtxt(os.path.join(expDir, 'test.log'))
                     vals = testLoss[:,1]
