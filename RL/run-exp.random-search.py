@@ -84,7 +84,7 @@ def analyze(args, allDir):
 
 def runExp(args, alg, algDir, expNum, hp_alg):
     hp = hyperparams[args.task]
-    expDir = os.path.join(algDir, str(expNum))
+    expDir = os.path.join(algDir, str(expNum).zfill(3))
 
     if os.path.exists(expDir):
         print("==============")
