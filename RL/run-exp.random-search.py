@@ -20,7 +20,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('task', type=str,
                         choices=['InvertedPendulum', 'InvertedDoublePendulum',
-                            'Reacher', 'HalfCheetah', 'Swimmer', 'Hopper',
+                                 'Reacher', 'HalfCheetah', 'Swimmer', 'Hopper',
                                  'Walker2d', 'Ant', 'Humanoid', 'HumanoidStandup'],
                         help='(Every task is currently v1.)')
     parser.add_argument('--alg', type=str, choices=all_algs)
