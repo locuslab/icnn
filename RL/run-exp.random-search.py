@@ -43,8 +43,8 @@ def runAlg(args, alg, allDir):
     np.random.seed(0)
     for i in range(args.nSamples):
         seed = 0
-        reward_k = 10.**npr.randint(-3, 1)
-        l2norm = 10.**npr.randint(-10, -3)
+        reward_k = 10.**npr.randint(-3, 0+1)
+        l2norm = 10.**npr.randint(-10, -3+1)
         if l2norm < 1e-8:
             l2norm = 0.
         runExp(args, alg, algDir, seed, reward_k, l2norm)
