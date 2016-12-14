@@ -88,7 +88,7 @@ hyperparams = {
         'ymin': -500, 'ymax': 2500, 'total': 100000, 'testInterval': 1000,
         'DDPG': {'reward_k': 1.0, 'l2norm': 0.001},
         'NAF': {'reward_k': 0.3, 'l2norm': 0.001},
-        'ICNN': {'reward_k': 0.1, 'l2norm': 0.}
+        'ICNN': {'reward_k': 0.01, 'l2norm': 0.}
     },
     'InvertedPendulum': {
         'ymin': 0, 'ymax': 1100, 'total': 10000, 'testInterval': 100,
@@ -100,7 +100,7 @@ hyperparams = {
         'ymin': 0, 'ymax': 10000, 'total': 10000, 'testInterval': 100,
         'DDPG': {'reward_k': 0.03},
         'NAF': {'reward_k': 0.02},
-        'ICNN': {'reward_k': 0.1, 'l2norm': 0.}
+        'ICNN': {'reward_k': 0.01, 'l2norm': 0.}
     },
     'Reacher': {
         'ymin': -15, 'ymax': -5, 'total': 10000, 'testInterval': 100,
