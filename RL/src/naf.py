@@ -34,7 +34,7 @@ class Agent:
             inter_op_parallelism_threads=FLAGS.thread,
             log_device_placement=False,
             allow_soft_placement=True,
-            gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.1)))
+            gpu_options=tf.GPUOptions(allow_growth=True)))
 
         is_training = tf.placeholder(tf.bool)
 
