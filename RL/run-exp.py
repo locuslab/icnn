@@ -116,22 +116,22 @@ hyperparams = {
     },
     'Walker2d': {
         'ymin': -50, 'ymax': 450, 'total': 10000, 'testInterval': 100,
-        'DDPG': {'reward_k': 1.,},
-        'NAF': {'reward_k': 1.,},
-        'ICNN': {'reward_k': 1., 'l2norm': 0.}
+        'DDPG': {'reward_k': 0.1,},
+        'NAF': {'reward_k': 0.1,},
+        'ICNN': {'reward_k': 0.04, 'l2norm': 0.}
     },
     'Ant': {
         # TODO
         'total': 100000, 'testInterval': 1000,
-        'DDPG': {'reward_k': 1.,},
-        'NAF': {'reward_k': 1.,},
+        'DDPG': {'reward_k': 0.2,},
+        'NAF': {'reward_k': 0.3,},
         'ICNN': {'reward_k': 1., 'l2norm': 0.}
     },
     'Humanoid': {
         # TODO
         'total': 100000, 'testInterval': 1000,
-        'DDPG': {'reward_k': 1.,},
-        'NAF': {'reward_k': 1.,},
+        'DDPG': {'reward_k': 0.03, 'l2norm': 0.01},
+        'NAF': {'reward_k': 0.01,},
         'ICNN': {'reward_k': 1., 'l2norm': 0.}
     },
     'HumanoidStandup': {
