@@ -24,7 +24,7 @@ def main():
                                  'Walker2d', 'Ant', 'Humanoid', 'HumanoidStandup'],
                         help='(Every task is currently v1.)')
     parser.add_argument('--alg', type=str, choices=all_algs)
-    parser.add_argument('--nSamples', type=int, default=50)
+    parser.add_argument('--nSamples', type=int, default=10)
     parser.add_argument('--save', type=str)
     parser.add_argument('--overwrite', action='store_true')
     parser.add_argument('--analyze', action='store_true')
@@ -79,7 +79,8 @@ def analyze(args, allDir):
                     testLoss = np.loadtxt(os.path.join(expDir, 'test.log'))
                     vals = testLoss[:,1]
                     maxVal, maxValI = vals.max(), vals.argmax()
-                    f.write('  + Experiment {}: Max test loss of {} at timestep {}\n'.format(exp, maxVal, maxValI))
+                    timestep = testLoss[maxValI,0]
+                    f.write('  + Experiment {}: Max test loss of {} at timestep {}\n'.format(exp, maxVal, timestep))
 
 def runExp(args, alg, algDir, expNum, hp_alg):
     hp = hyperparams[args.task]
