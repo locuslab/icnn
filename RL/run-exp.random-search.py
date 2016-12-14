@@ -117,7 +117,7 @@ hyperparams = {
         'ymin': 0, 'ymax': 10000, 'total': 10000, 'testInterval': 100,},
     'Reacher': {'ymin': -15, 'ymax': -5, 'total': 10000, 'testInterval': 100,},
     'Swimmer': {'ymin': -50, 'ymax': 450, 'total': 100000, 'testInterval': 1000,},
-    'Walker2d': {'ymin': -50, 'ymax': 450, 'total': 10000, 'testInterval': 100,},
+    'Walker2d': {'ymin': -50, 'ymax': 450, 'total': 200000, 'testInterval': 2000,},
     'Ant': {'total': 100000, 'testInterval': 1000,},
     'Humanoid': {'total': 100000, 'testInterval': 1000,},
     'HumanoidStandup': {'total': 100000, 'testInterval': 1000,},

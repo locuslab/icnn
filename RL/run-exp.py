@@ -115,7 +115,7 @@ hyperparams = {
         'ICNN': {'reward_k': 1., 'l2norm': 0.}
     },
     'Walker2d': {
-        'ymin': -50, 'ymax': 450, 'total': 10000, 'testInterval': 100,
+        'ymin': -50, 'ymax': 450, 'total': 200000, 'testInterval': 2000,
         'DDPG': {'reward_k': 0.1,},
         'NAF': {'reward_k': 0.1,},
         'ICNN': {'reward_k': 0.04, 'l2norm': 0.}
