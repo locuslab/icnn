@@ -55,12 +55,13 @@ def main():
                 'prate': 10.**npr.uniform(-4, -1),
                 'outheta': np.maximum(1e-8, npr.normal(loc=0.15, scale=0.1)),
                 'ousigma': np.maximum(1e-8, npr.normal(loc=0.1, scale=0.05)),
-                'lrelu': 10.**npr.uniform(-3, -1),
+                'lrelu': 10.**npr.uniform(-4, -1),
                 'naf_bn': bool(npr.binomial(1, 0.5)),
                 'icnn_bn': bool(npr.binomial(1, 0.5))
             }
             if hp_alg['l2norm'] < 1e-8: hp_alg['l2norm'] = 0.
             if hp_alg['pl2norm'] < 1e-8: hp_alg['pl2norm'] = 0.
+            if hp_alg['lrelu'] < 1e-3: hp_alg['lrelu'] = 0.
 
             for alg in algs:
                 algDir = os.path.join(allDir, alg)
