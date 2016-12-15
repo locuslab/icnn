@@ -74,13 +74,21 @@ def analyze(args, allDir):
             algDir = os.path.join(allDir, alg)
             if os.path.exists(algDir):
                 f.write("\n=== {} ===\n".format(alg))
+                bestVal, bestTime, bestExp = [None]*3
                 for exp in sorted(os.listdir(algDir)):
                     expDir = os.path.join(algDir, exp)
                     testRew = np.loadtxt(os.path.join(expDir, 'test.log'))
                     vals = testRew[:,1]
                     maxVal, maxValI = vals.max(), vals.argmax()
                     timestep = testRew[maxValI,0]
+                    if bestVal is None or maxVal > bestVal or \
+                       (maxVal == bestVal and timestep < bestTime):
+                        bestVal, bestTime, bestExp = maxVal, timestep, exp
                     f.write('  + Experiment {}: Max test reward of {} at timestep {}\n'.format(exp, maxVal, timestep))
+
+                f.write('\n--- Best reward of {} obtained at timestep {} of experiment {}\n'.format(bestVal, bestTime, bestExp))
+                with open(os.path.join(algDir, bestExp, 'flags.json'), 'r') as flagsF:
+                    f.write(flagsF.read()+'\n')
 
 def runExp(args, alg, algDir, expNum, hp_alg):
     hp = hyperparams[args.task]
