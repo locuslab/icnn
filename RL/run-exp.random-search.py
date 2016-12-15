@@ -24,7 +24,7 @@ def main():
                                  'Walker2d', 'Ant', 'Humanoid', 'HumanoidStandup'],
                         help='(Every task is currently v1.)')
     parser.add_argument('--alg', type=str, choices=all_algs)
-    parser.add_argument('--nSamples', type=int, default=10)
+    parser.add_argument('--nSamples', type=int, default=20)
     parser.add_argument('--save', type=str)
     parser.add_argument('--overwrite', action='store_true')
     parser.add_argument('--analyze', action='store_true')
@@ -41,31 +41,31 @@ def main():
         analyze(args, allDir)
     else:
         algs = [args.alg] if args.alg is not None else all_algs
-        for alg in algs:
-            runAlg(args, alg, allDir)
+        np.random.seed(0)
+        for i in range(args.nSamples):
+            l1size = npr.randint(100, 600)
+            l2size = npr.randint(100, l1size)
+            hp_alg = {
+                'l1size': l1size,
+                'l2size': l2size,
+                'reward_k': 10.**npr.uniform(-4, 1),
+                'l2norm': 10.**npr.uniform(-10, -2),
+                'pl2norm': 10.**npr.uniform(-10, -2),
+                'rate': 10.**npr.uniform(-4, -1),
+                'prate': 10.**npr.uniform(-4, -1),
+                'outheta': np.maximum(1e-8, npr.normal(loc=0.15, scale=0.1)),
+                'ousigma': np.maximum(1e-8, npr.normal(loc=0.1, scale=0.05)),
+                'lrelu': 10.**npr.uniform(-3, -1),
+                'naf_bn': bool(npr.binomial(1, 0.5)),
+                'icnn_bn': bool(npr.binomial(1, 0.5))
+            }
+            if hp_alg['l2norm'] < 1e-8: hp_alg['l2norm'] = 0.
+            if hp_alg['pl2norm'] < 1e-8: hp_alg['pl2norm'] = 0.
 
-def runAlg(args, alg, allDir):
-    algDir = os.path.join(allDir, alg)
-
-    np.random.seed(0)
-    for i in range(args.nSamples):
-        hp_alg = {
-            'reward_k': 10.**npr.uniform(-4, 1),
-            'l2norm': 10.**npr.uniform(-10, -2),
-            'pl2norm': 10.**npr.uniform(-10, -2),
-            'rate': 10.**npr.uniform(-4, -1),
-            'prate': 10.**npr.uniform(-4, -1),
-            'outheta': np.maximum(1e-8, npr.normal(loc=0.15, scale=0.1)),
-            'ousigma': np.maximum(1e-8, npr.normal(loc=0.1, scale=0.05)),
-            'lrelu': 10.**npr.uniform(-3, -1),
-            'naf_bn': bool(npr.binomial(1, 0.5)),
-            'icnn_bn': bool(npr.binomial(1, 0.5))
-        }
-        if hp_alg['l2norm'] < 1e-8: hp_alg['l2norm'] = 0.
-        if hp_alg['pl2norm'] < 1e-8: hp_alg['pl2norm'] = 0.
-
-        runExp(args, alg, algDir, i, hp_alg)
-        analyze(args, allDir)
+            for alg in algs:
+                algDir = os.path.join(allDir, alg)
+                runExp(args, alg, algDir, i, hp_alg)
+                analyze(args, allDir)
 
 def analyze(args, allDir):
     with open(os.path.join(allDir, 'analysis.txt'), 'w') as f:
@@ -75,7 +75,7 @@ def analyze(args, allDir):
                 f.write("\n=== {} ===\n".format(alg))
                 for exp in sorted(os.listdir(algDir)):
                     expDir = os.path.join(algDir, exp)
-                    testLoss = np.loadtxt(os.path.join(expDir, 'test.log'))
+                    testRew = np.loadtxt(os.path.join(expDir, 'test.log'))
                     vals = testRew[:,1]
                     maxVal, maxValI = vals.max(), vals.argmax()
                     timestep = testRew[maxValI,0]
