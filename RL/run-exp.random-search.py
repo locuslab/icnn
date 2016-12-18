@@ -27,7 +27,6 @@ def main():
     parser.add_argument('--nSamples', type=int, default=20)
     parser.add_argument('--save', type=str)
     parser.add_argument('--overwrite', action='store_true')
-    parser.add_argument('--analyze', action='store_true')
 
     args = parser.parse_args()
 
@@ -37,58 +36,32 @@ def main():
             shutil.rmtree(allDir)
     os.makedirs(allDir, exist_ok=True)
 
-    if args.analyze:
-        analyze(args, allDir)
-    else:
-        algs = [args.alg] if args.alg is not None else all_algs
-        np.random.seed(0)
-        for i in range(args.nSamples):
-            l1size = npr.randint(100, 600)
-            l2size = npr.randint(100, l1size)
-            hp_alg = {
-                'l1size': l1size,
-                'l2size': l2size,
-                'reward_k': 10.**npr.uniform(-4, 1),
-                'l2norm': 10.**npr.uniform(-10, -2),
-                'pl2norm': 10.**npr.uniform(-10, -2),
-                'rate': 10.**npr.uniform(-4, -1),
-                'prate': 10.**npr.uniform(-4, -1),
-                'outheta': np.maximum(1e-8, npr.normal(loc=0.15, scale=0.1)),
-                'ousigma': np.maximum(1e-8, npr.normal(loc=0.1, scale=0.05)),
-                'lrelu': 10.**npr.uniform(-4, -1),
-                'naf_bn': bool(npr.binomial(1, 0.5)),
-                'icnn_bn': bool(npr.binomial(1, 0.5))
-            }
-            if hp_alg['l2norm'] < 1e-8: hp_alg['l2norm'] = 0.
-            if hp_alg['pl2norm'] < 1e-8: hp_alg['pl2norm'] = 0.
-            if hp_alg['lrelu'] < 1e-3: hp_alg['lrelu'] = 0.
+    algs = [args.alg] if args.alg is not None else all_algs
+    np.random.seed(0)
+    for i in range(args.nSamples):
+        l1size = npr.randint(100, 600)
+        l2size = npr.randint(100, l1size)
+        hp_alg = {
+            'l1size': l1size,
+            'l2size': l2size,
+            'reward_k': 10.**npr.uniform(-4, 1),
+            'l2norm': 10.**npr.uniform(-10, -2),
+            'pl2norm': 10.**npr.uniform(-10, -2),
+            'rate': 10.**npr.uniform(-4, -1),
+            'prate': 10.**npr.uniform(-4, -1),
+            'outheta': np.maximum(1e-8, npr.normal(loc=0.15, scale=0.1)),
+            'ousigma': np.maximum(1e-8, npr.normal(loc=0.1, scale=0.05)),
+            'lrelu': 10.**npr.uniform(-4, -1),
+            'naf_bn': bool(npr.binomial(1, 0.5)),
+            'icnn_bn': bool(npr.binomial(1, 0.5))
+        }
+        if hp_alg['l2norm'] < 1e-8: hp_alg['l2norm'] = 0.
+        if hp_alg['pl2norm'] < 1e-8: hp_alg['pl2norm'] = 0.
+        if hp_alg['lrelu'] < 1e-3: hp_alg['lrelu'] = 0.
 
-            for alg in algs:
-                algDir = os.path.join(allDir, alg)
-                runExp(args, alg, algDir, i, hp_alg)
-                analyze(args, allDir)
-
-def analyze(args, allDir):
-    with open(os.path.join(allDir, 'analysis.txt'), 'w') as f:
-        for alg in all_algs:
+        for alg in algs:
             algDir = os.path.join(allDir, alg)
-            if os.path.exists(algDir):
-                f.write("\n=== {} ===\n".format(alg))
-                bestVal, bestTime, bestExp = [None]*3
-                for exp in sorted(os.listdir(algDir)):
-                    expDir = os.path.join(algDir, exp)
-                    testRew = np.loadtxt(os.path.join(expDir, 'test.log'))
-                    vals = testRew[:,1]
-                    maxVal, maxValI = vals.max(), vals.argmax()
-                    timestep = testRew[maxValI,0]
-                    if bestVal is None or maxVal > bestVal or \
-                       (maxVal == bestVal and timestep < bestTime):
-                        bestVal, bestTime, bestExp = maxVal, timestep, exp
-                    f.write('  + Experiment {}: Max test reward of {} at timestep {}\n'.format(exp, maxVal, timestep))
-
-                f.write('\n--- Best reward of {} obtained at timestep {} of experiment {}\n'.format(bestVal, bestTime, bestExp))
-                with open(os.path.join(algDir, bestExp, 'flags.json'), 'r') as flagsF:
-                    f.write(flagsF.read()+'\n')
+            runExp(args, alg, algDir, i, hp_alg)
 
 def runExp(args, alg, algDir, expNum, hp_alg):
     hp = hyperparams[args.task]
