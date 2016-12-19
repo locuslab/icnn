@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Code from Repo SimonRamstedt/ddpg
 # Heavily modified
 
@@ -16,6 +17,10 @@ import runtime_env
 import time
 
 import setproctitle
+
+srcDir = os.path.dirname(os.path.realpath(__file__))
+rlDir = os.path.join(srcDir, '..')
+plotScr = os.path.join(rlDir, 'plot-single.py')
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -99,6 +104,8 @@ class Experiment(object):
             avg_reward = np.mean(reward_list)
             print('Average train return {} after {} timestep of training.'.format(
                 avg_reward, self.train_timestep))
+
+            os.system('{} {}'.format(plotScr, FLAGS.outdir))
 
         self.env.monitor.close()
 
