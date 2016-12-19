@@ -9,7 +9,7 @@ from subprocess import Popen, PIPE
 pythonCmd = 'python3'
 rlDir = os.path.dirname(os.path.realpath(__file__))
 # rlDir = os.path.join(fileDir, '..')
-plotSrc = os.path.join(rlDir, 'src', 'plot.py')
+plotSrc = os.path.join(rlDir, 'plot-all.py')
 mainSrc = os.path.join(rlDir, 'src', 'main.py')
 
 def main():

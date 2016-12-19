@@ -11,7 +11,7 @@ import numpy.random as npr
 
 pythonCmd = 'python3'
 rlDir = os.path.dirname(os.path.realpath(__file__))
-plotSrc = os.path.join(rlDir, 'src', 'plot.py')
+plotSrc = os.path.join(rlDir, 'plot-all.py')
 mainSrc = os.path.join(rlDir, 'src', 'main.py')
 
 all_algs = ['DDPG', 'NAF', 'ICNN']
