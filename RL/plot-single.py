@@ -28,7 +28,15 @@ def main():
     if trainData.shape[0] > 1:
         plt.plot(trainData[:,0], trainData[:,1], label='Train')
     if testData.shape[0] > 1:
-        plt.plot(testData[:,0], testData[:,1], label='Test')
+        testI = testData[:,0]
+        testRew = testData[:,1]
+        plt.plot(testI, testRew, label='Test')
+
+        N = 10
+        testI_ = testI[N:]
+        testRew_ = [sum(testRew[i-N:i])/N for i in range(N, len(testRew))]
+        plt.plot(testI_, testRew_, label='Rolling Test')
+
     plt.ylim([args.ymin, args.ymax])
     plt.legend()
     fname = os.path.join(args.expDir, 'reward.pdf')
