@@ -53,7 +53,9 @@ def main():
             'ousigma': np.maximum(1e-8, npr.normal(loc=0.1, scale=0.05)),
             'lrelu': 10.**npr.uniform(-4, -1),
             'naf_bn': bool(npr.binomial(1, 0.5)),
-            'icnn_bn': bool(npr.binomial(1, 0.5))
+            'icnn_bn': False,#bool(npr.binomial(1, 0.5)),
+            'icnn_mean': np.maximum(1e-3, npr.normal(loc=0.1, scale=0.05)),
+            'icnn_initstd': 10.**npr.uniform(-2, 0)
         }
         if hp_alg['l2norm'] < 1e-8: hp_alg['l2norm'] = 0.
         if hp_alg['pl2norm'] < 1e-8: hp_alg['pl2norm'] = 0.
