@@ -31,17 +31,13 @@ def main():
 
     tableP = os.path.join(args.expDir, 'table.tex')
     with open(tableP, 'w') as f:
-        f.write('{:>25s} & DDPG & (episodes) & NAF & (episodes) & ICNN & (episodes) \\\\ \\hline\n'.format('Task'))
+        f.write('{:>25s} & DDPG & & NAF & & ICNN & \\\\ \\hline\n'.format('Task'))
         for task, algs in sorted(bestVals.items()):
-            vals = [algs[alg][0] for alg in all_algs]
-            episodes = [algs[alg][1] for alg in all_algs]
-            vals_eps = list(zip(vals, episodes, all_algs))
-            s = sorted(vals_eps, key=operator.itemgetter(1))
-            s = sorted(s, key=operator.itemgetter(0), reverse=True)
-            bestAlg = s[0][2]
+            bestAlg = sorted(algs.items(), key=operator.itemgetter(1),
+                             reverse=True)[0][0]
 
             def getStr(alg):
-                s = '{:.2f} ({:d})'.format(algs[alg][0], int(algs[alg][1]))
+                s = '{:.2f} ({:.2f})'.format(algs[alg][0], int(algs[alg][1]))
                 if alg == bestAlg:
                     s = '\\textbf{' + s + '}'
                 return s
@@ -55,21 +51,18 @@ def main():
         f.write('| Task | DDPG | NAF | ICNN |\n')
         f.write('|------+------+-----+------|\n')
         for task, algs in sorted(bestVals.items()):
-            vals = [algs[alg][0] for alg in all_algs]
-            episodes = [algs[alg][1] for alg in all_algs]
-            vals_eps = list(zip(vals, episodes, all_algs))
-            s = sorted(vals_eps, key=operator.itemgetter(1))
-            s = sorted(s, key=operator.itemgetter(0), reverse=True)
-            bestAlg = s[0][2]
+            bestAlg = sorted(algs.items(), key=operator.itemgetter(1),
+                             reverse=True)[0][0]
 
             def getStr(alg):
-                s = '{:.2f} ({:d})'.format(algs[alg][0], int(algs[alg][1]))
+                s = '{:.2f} ({:.2f})'.format(algs[alg][0], int(algs[alg][1]))
                 if alg == bestAlg:
                     s = '*{}*'.format(s)
                 return s
 
             f.write('| {:s} | {} | {} | {} |\n'.format(
                 task, getStr('DDPG'), getStr('NAF'), getStr('ICNN')))
+            f.flush()
     print('Created {}'.format(tableP))
 
     for task, algs in bestParams.items():
@@ -100,21 +93,30 @@ def analyzeTask(taskDir):
         for alg in all_algs:
             algDir = os.path.join(taskDir, alg)
             if os.path.exists(algDir):
-                print('  + {}'.format(alg))
-                f.write("\n=== {} ===\n".format(alg))
-                bestVal, bestTime, bestExp = [None]*3
+                f.write('\n=== {}\n\n'.format(alg))
+                exps = {}
                 for exp in sorted(os.listdir(algDir)):
                     expDir = os.path.join(algDir, exp)
-                    testRew = np.loadtxt(os.path.join(expDir, 'test.log'))
-                    vals = testRew[:,1]
-                    maxVal, maxValI = vals.max(), vals.argmax()
-                    timestep = testRew[maxValI,0]
-                    if bestVal is None or maxVal > bestVal or \
-                       (maxVal == bestVal and timestep < bestTime):
-                        bestVal, bestTime, bestExp = maxVal, timestep, exp
-                    f.write('  + Experiment {}: Max test reward of {} at timestep {}\n'.format(exp, maxVal, timestep))
+                    testData = np.loadtxt(os.path.join(expDir, 'test.log'))
+                    testRew = testData[:,1]
+                    if np.any(np.isnan(testRew)):
+                        continue
 
-                f.write('\n--- Best reward of {} obtained at timestep {} of experiment {}\n'.format(bestVal, bestTime, bestExp))
+                    N = 10
+                    testRew_ = np.array([sum(testRew[i-N:i])/N for
+                                         i in range(N, len(testRew))])
+                    exps[exp] = [testRew_[-1], testRew_.sum()]
+
+                    f.write(('  + Experiment {}: Final rolling reward of {} '+
+                             'with a cumulative reward of {}\n').format(
+                                 *([exp] + exps[exp])))
+
+                s = sorted(exps.items(), key=operator.itemgetter(1), reverse=True)
+                best = s[0]
+                bestExp = best[0]
+
+                f.write('\n--- Best of {} obtained in experiment {}\n'.format(
+                    best[1], bestExp))
                 flagsP = os.path.join(algDir, bestExp, 'flags.json')
                 with open(flagsP, 'r') as flagsF:
                     f.write(flagsF.read()+'\n')
@@ -122,7 +124,7 @@ def analyzeTask(taskDir):
                     flags = json.load(flagsF)
 
                 bestParams[alg] = flags
-                bestVals[alg] = (bestVal, bestTime, bestExp)
+                bestVals[alg] = best[1]
 
     return bestParams, bestVals
 
