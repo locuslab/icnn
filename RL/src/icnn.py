@@ -89,7 +89,7 @@ class Agent:
             td_error = q_entropy - q_target
         ms_td_error = tf.reduce_mean(tf.square(td_error), 0)
 
-        regLosses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+        regLosses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope='q/')
         loss_q = ms_td_error + l2norm*tf.reduce_mean(regLosses)
 
         self.theta_ = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='q/')
