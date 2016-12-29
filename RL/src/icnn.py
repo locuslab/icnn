@@ -90,7 +90,7 @@ class Agent:
         ms_td_error = tf.reduce_mean(tf.square(td_error), 0)
 
         regLosses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope='q/')
-        loss_q = ms_td_error + l2norm*tf.reduce_mean(regLosses)
+        loss_q = ms_td_error + l2norm*tf.reduce_sum(regLosses)
 
         self.theta_ = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='q/')
         self.theta_cvx_ = [v for v in self.theta_
