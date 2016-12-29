@@ -80,7 +80,8 @@ def runExp(args, alg, algDir, expNum, hp_alg):
            '--outdir', expDir,
            '--total', str(hp['total']), '--train', str(hp['testInterval']),
            '--test', str(nTestEpisode), '--monitor', str(monitor),
-           '--tfseed', str(seed), '--gymseed', str(seed), '--npseed', str(seed)]
+           '--tfseed', str(seed), '--gymseed', str(seed), '--npseed', str(seed),
+           '--ymin', str(hp['ymin']), '--ymax', str(hp['ymax'])]
 
     for opt, val in hp_alg.items():
         cmd += ['--'+opt, str(val)]

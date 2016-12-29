@@ -36,6 +36,8 @@ flags.DEFINE_string('model', 'ICNN', 'reinforcement learning model[DDPG, NAF, IC
 flags.DEFINE_integer('tfseed', 0, 'random seed for tensorflow')
 flags.DEFINE_integer('gymseed', 0, 'random seed for openai gym')
 flags.DEFINE_integer('npseed', 0, 'random seed for numpy')
+flags.DEFINE_float('ymin', 0, 'random seed for numpy')
+flags.DEFINE_float('ymax', 1000, 'random seed for numpy')
 
 setproctitle.setproctitle('ICNN.RL.{}.{}.{}'.format(
     FLAGS.env,FLAGS.model,FLAGS.tfseed))
@@ -105,9 +107,12 @@ class Experiment(object):
             print('Average train return {} after {} timestep of training.'.format(
                 avg_reward, self.train_timestep))
 
-            os.system('{} {}'.format(plotScr, FLAGS.outdir))
+            os.system('{} {} --ymin={} --ymax={}'.format(plotScr, FLAGS.outdir, FLAGS.ymin, FLAGS.ymax))
 
         self.env.monitor.close()
+        os.makedirs(os.path.join(FLAGS.outdir, "tf"))
+        ckpt = os.path.join(FLAGS.outdir, "tf/model.ckpt")
+        self.agent.saver.save(self.agent.sess, ckpt)
 
     def run_episode(self, test=True, monitor=False):
         self.env.monitor.configure(lambda _: monitor)
