@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 
 import tensorflow as tf
 import tflearn
@@ -108,13 +108,13 @@ def variable_summaries(var, name=None):
         name = var.name
     with tf.name_scope('summaries'):
         mean = tf.reduce_mean(var)
-        tf.scalar_summary('mean/' + name, mean)
+        tf.summary.scalar('mean/' + name, mean)
         with tf.name_scope('stdev'):
             stdev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-        tf.scalar_summary('stdev/' + name, stdev)
-        tf.scalar_summary('max/' + name, tf.reduce_max(var))
-        tf.scalar_summary('min/' + name, tf.reduce_min(var))
-        tf.histogram_summary(name, var)
+        tf.summary.scalar('stdev/' + name, stdev)
+        tf.summary.scalar('max/' + name, tf.reduce_max(var))
+        tf.summary.scalar('min/' + name, tf.reduce_min(var))
+        tf.summary.histogram(name, var)
 
 class Model:
     def __init__(self, nFeatures, nLabels, layerSzs, sess):
@@ -159,7 +159,7 @@ class Model:
             variable_summaries(g, 'gradients/'+v.name)
 
         # self.l_yN_ = tf.placeholder(tf.float32, name='l_yN')
-        # tf.scalar_summary('crossEntr', self.l_yN_)
+        # tf.summary.scalar('crossEntr', self.l_yN_)
 
         # self.nBundleIter_ = tf.placeholder(tf.float32, [None], name='nBundleIter')
         # variable_summaries(self.nBundleIter_)
@@ -167,7 +167,7 @@ class Model:
         # self.nActive_ = tf.placeholder(tf.float32, [None], name='nActive')
         # variable_summaries(self.nActive_)
 
-        self.merged = tf.merge_all_summaries()
+        self.merged = tf.summary.merge_all()
         self.saver = tf.train.Saver(max_to_keep=1)
 
     def train(self, args, trainX, trainY, valX, valY):
@@ -188,9 +188,9 @@ class Model:
         testW = csv.writer(testF)
         testW.writerow(testFields)
 
-        self.trainWriter = tf.train.SummaryWriter(os.path.join(save, 'train'),
-                                                  self.sess.graph)
-        self.sess.run(tf.initialize_all_variables())
+        self.trainWriter = tf.summary.FileWriter(os.path.join(save, 'train'),
+                                                 self.sess.graph)
+        self.sess.run(tf.global_variables_initializer())
 
         nParams = np.sum(v.get_shape().num_elements() for v in tf.trainable_variables())
 
@@ -221,16 +221,16 @@ class Model:
                 return e, ge
 
             y0 = np.full(yBatch.shape, 0.5)
-            try:
-                yN, G, h, lam, ys, nIters = bundle_entropy.solveBatch(
-                    fg, y0, nIter=args.inference_nIter)
-            except:
-                print("Warning: Exception in bundle_entropy.solveBatch")
-                nErrors += 1
-                if nErrors > 10:
-                    print("More than 10 errors raised, quitting")
-                    sys.exit(-1)
-                continue
+            # try:
+            yN, G, h, lam, ys, nIters = bundle_entropy.solveBatch(
+                fg, y0, nIter=args.inference_nIter)
+            # except:
+            #     print("Warning: Exception in bundle_entropy.solveBatch")
+            #     nErrors += 1
+            #     if nErrors > 10:
+            #         print("More than 10 errors raised, quitting")
+            #         sys.exit(-1)
+            #     continue
 
             nActive = [len(Gi) for Gi in G]
             l_yN = crossEntr(yBatch, yN)
