@@ -2,7 +2,10 @@ import numpy as np
 import scipy as sp
 import numpy.random as npr
 
-def pdipm(G, h, z0=None):
+def pdipm_pc(G, h, z0=None):
+    # Mehrotra's PC method as described in the cvxgen paper:
+    # http://stanford.edu/~boyd/papers/pdf/code_gen_impl.pdf
+
     nDual, nPrimal = G.shape
     z = z0.copy() if z0 is not None else np.ones(nDual)/nDual
     y = np.full(nPrimal, 0.5) #1/(1+np.exp(A.T.dot(z)))
@@ -71,7 +74,84 @@ def pdipm(G, h, z0=None):
         t += alpha*dt
         s += alpha*ds
         z += alpha*dz
-        y = np.clip(y, 1e-8, 1.-1e-8)
+
+    return y, z
+
+def pdipm_boyd(G, h, z0=None):
+    # p612 of Boyd's Convex Optimization book.
+
+    alpha = 0.05
+    beta = 0.5
+    mu = 10
+
+    nDual, nPrimal = G.shape
+    z = z0.copy() if z0 is not None else np.ones(nDual)/nDual
+    y = np.full(nPrimal, 0.5) #1/(1+np.exp(A.T.dot(z)))
+
+    # Choose t and s so that Gy + h - t + s = 0
+    t = np.max(G.dot(y)+h)+1.0
+    s = -G.dot(y)-h+t
+
+    for i in range(20):
+        grad_negH = np.log(y) - np.log(1.-y)
+        hess_negH = np.diag(1./y + 1./(1.-y))
+        hess_negH_inv = np.diag(1./(1./y + 1./(1.-y)))
+
+        gap = s.dot(z)/nDual
+        u = mu/gap # Modified complementary slackness.
+
+        def res(y, t, s, z):
+            grad_negH = np.log(y) - np.log(1.-y)
+            ry = grad_negH + G.T.dot(z) # y residual.
+            rt = 1.-np.sum(z) # t residual.
+            rc = -s*z - 1./u # Modified complementary slackness residual.
+            rd = G.dot(y) + h - t*np.ones(nDual) + s # Dual residual.
+            return ry, rt, rc, rd
+
+        ry, rt, rc, rd = res(y, t, s, z)
+
+        pri_res = np.linalg.norm(np.concatenate([ry, [rt]]))
+        dual_res = np.linalg.norm(rd)
+        d = z/s
+        print(("primal_res = {0:.5g}, dual_res = {1:.5g}, " +
+                "gap = {2:.5g}, kappa(d) = {3:.5g}").format(
+                    pri_res, dual_res, gap, min(d)/max(d)))
+
+        if pri_res < 1e-8 and dual_res < 1e-8:
+            return y, z
+
+        A = np.bmat([[hess_negH, np.zeros((nPrimal, 1+nDual)), G.T],
+                    [np.zeros((1,nPrimal+1+nDual)), -np.ones((1,nDual))],
+                    [np.zeros((nDual,nPrimal+1)), -np.diag(z), -np.diag(s)],
+                    [G, -np.ones((nDual, 1)), np.eye(nDual), np.zeros((nDual, nDual))]])
+
+        r = np.concatenate([ry, [rt], rc, rd])
+        d = np.linalg.solve(A, -r)
+        dy, dt, ds, dz = np.split(d, [nPrimal, nPrimal+1, nPrimal+1+nDual])
+
+        step = min(1.0, 0.99*min(get_step(s, ds), get_step(z, dz),
+                                 get_step(y, dy), get_step(-y+1, -dy)))
+
+        def update(step):
+            return y + step*dy, t + step*dt, s + step*ds, z + step*dz
+
+        def f(step):
+            yp, tp, sp, zp = update(step)
+            return np.all(G.dot(yp)+h-tp+sp >= 0)
+
+        def g(step):
+            yp, tp, sp, zp = update(step)
+            ry, rt, rc, rd = res(yp, tp, sp, zp)
+            rp = np.concatenate([ry, [rt], rc, rd])
+            return np.linalg.norm(rp) > (1.-alpha*step)*np.linalg.norm(r)
+
+        while f(step):
+            step *= beta
+
+        while g(step):
+            step *= beta
+
+        y, t, s, z = update(step)
 
     return y, z
 
@@ -109,7 +189,7 @@ def solve(fg, initX, nIter=10, callback=None):
 
     return x
 
-def solveBatch(fg, initXs, nIter=10, callback=None):
+def solveBatch(fg, initXs, nIter=10, callback=None, solver='pc'):
     bsize = initXs.shape[0]
     A = [[] for i in range(bsize)]
     b = [[] for i in range(bsize)]
@@ -144,8 +224,12 @@ def solveBatch(fg, initXs, nIter=10, callback=None):
                 nIters[u] = t-1
                 continue
 
-            x[u], lam[u] = pdipm(np.array(A[u]), np.array(b[u]))
-            print(lam[u])
+            if solver == 'pc':
+                x[u], lam[u] = pdipm_pc(np.array(A[u]), np.array(b[u]))
+            elif solver == 'boyd':
+                x[u], lam[u] = pdipm_boyd(np.array(A[u]), np.array(b[u]))
+            else:
+                raise RuntimeError("Solver unknown: "+solver)
 
             A[u] = [y for i,y in enumerate(A[u]) if lam[u][i] > eps]
             b[u] = [y for i,y in enumerate(b[u]) if lam[u][i] > eps]
