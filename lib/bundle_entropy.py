@@ -104,7 +104,7 @@ def pdipm_boyd(G, h, z0=None):
             grad_negH = np.log(y) - np.log(1.-y)
             ry = grad_negH + G.T.dot(z) # y residual.
             rt = 1.-np.sum(z) # t residual.
-            rc = -s*z - 1./u # Modified complementary slackness residual.
+            rc = s*z + 1./u # Modified complementary slackness residual.
             rd = G.dot(y) + h - t*np.ones(nDual) + s # Dual residual.
             return ry, rt, rc, rd
 
@@ -122,7 +122,7 @@ def pdipm_boyd(G, h, z0=None):
 
         A = np.bmat([[hess_negH, np.zeros((nPrimal, 1+nDual)), G.T],
                     [np.zeros((1,nPrimal+1+nDual)), -np.ones((1,nDual))],
-                    [np.zeros((nDual,nPrimal+1)), -np.diag(z), -np.diag(s)],
+                    [np.zeros((nDual,nPrimal+1)), np.diag(z), np.diag(s)],
                     [G, -np.ones((nDual, 1)), np.eye(nDual), np.zeros((nDual, nDual))]])
 
         r = np.concatenate([ry, [rt], rc, rd])
