@@ -21,8 +21,6 @@ flags.DEFINE_float('ousigma', 0.1, 'noise sigma')
 flags.DEFINE_float('lrelu', 0.01, 'leak relu rate')
 flags.DEFINE_boolean('naf_bn', False, 'enable NAF batch normalization')
 flags.DEFINE_boolean('icnn_bn', False, 'enable icnn batch normalization')
-flags.DEFINE_float('icnn_mean', 0.1, 'icnn convex path mean')
-flags.DEFINE_float('icnn_initstd', 0.1, 'icnn convex path mean')
 
 flags.DEFINE_string('icnn_opt', 'adam',
                     "ICNN's inner optimization routine. Options=[adam,bundle_entropy]")

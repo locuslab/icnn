@@ -340,15 +340,11 @@ class Agent:
         z_us = []
 
         reg = 'L2'
-        large_init = tf.truncated_normal_initializer(stddev=FLAGS.icnn_initstd)
 
         prevU = x
         for i in range(nLayers):
             with tf.variable_scope('u'+str(i)) as s:
-                if i == 0:
-                    u = fc(prevU, szs[i], reuse=reuse, scope=s, weights_init=large_init, regularizer=reg)
-                else:
-                    u = fc(prevU, szs[i], reuse=reuse, scope=s, regularizer=reg)
+                u = fc(prevU, szs[i], reuse=reuse, scope=s, regularizer=reg)
                 if i < nLayers-1:
                     u = tf.nn.relu(u)
                     if FLAGS.icnn_bn:
@@ -364,8 +360,8 @@ class Agent:
             if i > 0:
                 with tf.variable_scope('z{}_zu_u'.format(i)) as s:
                     zu_u = fc(prevU, szs[i-1], reuse=reuse, scope=s,
-                              activation='sigmoid', bias=True,
-                              regularizer=reg, bias_init=tf.constant_initializer(0.))
+                              activation='relu', bias=True,
+                              regularizer=reg, bias_init=tf.constant_initializer(1.))
                     variable_summaries(zu_u, suffix='zu_u{}'.format(i))
                 with tf.variable_scope('z{}_zu_proj'.format(i)) as s:
                     z_zu = fc(tf.mul(prevZ, zu_u), sz, reuse=reuse, scope=s,
@@ -375,28 +371,21 @@ class Agent:
                 z_add.append(z_zu)
 
             with tf.variable_scope('z{}_yu_u'.format(i)) as s:
-                yu_u = fc(prevU, self.dimA, reuse=reuse, scope=s, activation='sigmoid', bias=True,
-                          regularizer=reg, bias_init=tf.constant_initializer(0.))
+                yu_u = fc(prevU, self.dimA, reuse=reuse, scope=s, bias=True,
+                          regularizer=reg, bias_init=tf.constant_initializer(1.))
                 variable_summaries(yu_u, suffix='yu_u{}'.format(i))
             with tf.variable_scope('z{}_yu'.format(i)) as s:
-                z_yu = fc(tf.mul(y, yu_u), sz, reuse=reuse, scope=s, bias=False, weights_init=large_init,
-                        regularizer=reg)
-
+                z_yu = fc(tf.mul(y, yu_u), sz, reuse=reuse, scope=s, bias=False,
+                          regularizer=reg)
                 z_ys.append(z_yu)
                 variable_summaries(z_yu, suffix='z_yu{}'.format(i))
             z_add.append(z_yu)
 
             with tf.variable_scope('z{}_u'.format(i)) as s:
-                if i == 0:
-                    z_u = fc(prevU, sz, reuse=reuse, scope=s,
-                             bias=True, regularizer=reg, weights_init=large_init,
-                             bias_init=tf.constant_initializer(0.))
-                else:
-                    z_u = fc(prevU, sz, reuse=reuse, scope=s,
-                             bias=True, regularizer=reg,
-                             bias_init=tf.constant_initializer(0.))
+                z_u = fc(prevU, sz, reuse=reuse, scope=s,
+                         bias=True, regularizer=reg,
+                         bias_init=tf.constant_initializer(0.))
                 variable_summaries(z_u, suffix='z_u{}'.format(i))
-
             z_us.append(z_u)
             z_add.append(z_u)
 
@@ -405,10 +394,6 @@ class Agent:
             if i < nLayers:
                 # z = tf.nn.relu(z)
                 z = lrelu(z, alpha=FLAGS.lrelu)
-                convex_path_loss = 1. * tf.square(tf.reduce_mean(z) - FLAGS.icnn_mean)
-                convex_path_loss += 1. * tf.reduce_mean(tf.square(z))
-                tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, convex_path_loss)
-
                 variable_summaries(z, suffix='z{}_act'.format(i))
 
             zs.append(z)
