@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 
 import tensorflow as tf
 import tflearn
@@ -92,13 +92,13 @@ def variable_summaries(var, name=None):
         name = var.name
     with tf.name_scope('summaries'):
         mean = tf.reduce_mean(var)
-        tf.scalar_summary('mean/' + name, mean)
+        tf.summary.scalar('mean/' + name, mean)
         with tf.name_scope('stdev'):
             stdev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-        tf.scalar_summary('stdev/' + name, stdev)
-        tf.scalar_summary('max/' + name, tf.reduce_max(var))
-        tf.scalar_summary('min/' + name, tf.reduce_min(var))
-        tf.histogram_summary(name, var)
+        tf.summary.scalar('stdev/' + name, stdev)
+        tf.summary.scalar('max/' + name, tf.reduce_max(var))
+        tf.summary.scalar('min/' + name, tf.reduce_min(var))
+        tf.summary.histogram(name, var)
 
 class Model:
     def __init__(self, nFeatures, nLabels, args, sess):
@@ -143,7 +143,7 @@ class Model:
         self.makeCvx = [v.assign(tf.abs(v)) for v in self.theta_cvx_]
         self.proj = [v.assign(tf.maximum(v, 0)) for v in self.theta_cvx_]
 
-        self.merged = tf.merge_all_summaries()
+        self.merged = tf.summary.merge_all()
         self.saver = tf.train.Saver(max_to_keep=1)
 
     def train(self, args, trainX, trainY, valX, valY):
@@ -164,9 +164,9 @@ class Model:
         testW = csv.writer(testF)
         testW.writerow(testFields)
 
-        self.trainWriter = tf.train.SummaryWriter(os.path.join(save, 'train'),
-                                                  self.sess.graph)
-        self.sess.run(tf.initialize_all_variables())
+        self.trainWriter = tf.summary.FileWriter(os.path.join(save, 'train'),
+                                                 self.sess.graph)
+        self.sess.run(tf.global_variables_initializer())
 
         nParams = np.sum(v.get_shape().num_elements() for v in tf.trainable_variables())
 
