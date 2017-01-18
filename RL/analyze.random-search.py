@@ -29,25 +29,8 @@ def main():
         if os.path.isdir(taskDir):
             bestParams[task], bestVals[task] = analyzeTask(taskDir)
 
-    tableP = os.path.join(args.expDir, 'table.tex')
-    with open(tableP, 'w') as f:
-        f.write('{:>25s} & DDPG & & NAF & & ICNN & \\\\ \\hline\n'.format('Task'))
-        for task, algs in sorted(bestVals.items()):
-            bestAlg = sorted(algs.items(), key=operator.itemgetter(1),
-                             reverse=True)[0][0]
-
-            def getStr(alg):
-                s = '{:.2f} ({:.2f})'.format(algs[alg][0], int(algs[alg][1]))
-                if alg == bestAlg:
-                    s = '\\textbf{' + s + '}'
-                return s
-
-            f.write('{:>25s} & {} & {} & {} \\\\\n'.format(
-                task, getStr('DDPG'), getStr('NAF'), getStr('ICNN')))
-    print('Created {}'.format(tableP))
-
-    tableP = os.path.join(args.expDir, 'table.org')
-    with open(tableP, 'w') as f:
+    orgTableP = os.path.join(args.expDir, 'table.org')
+    with open(orgTableP, 'w') as f:
         f.write('| Task | DDPG | NAF | ICNN |\n')
         f.write('|------+------+-----+------|\n')
         for task, algs in sorted(bestVals.items()):
@@ -63,7 +46,11 @@ def main():
             f.write('| {:s} | {} | {} | {} |\n'.format(
                 task, getStr('DDPG'), getStr('NAF'), getStr('ICNN')))
             f.flush()
-    print('Created {}'.format(tableP))
+    print('Created {}'.format(orgTableP))
+
+
+    texTableP = os.path.join(args.expDir, 'table.tex')
+    os.system('pandoc {} --to latex --output {}'.format(orgTableP, texTableP))
 
     for task, algs in bestParams.items():
         for alg, params in algs.items():
@@ -99,10 +86,12 @@ def analyzeTask(taskDir):
                     expDir = os.path.join(algDir, exp)
                     testData = np.loadtxt(os.path.join(expDir, 'test.log'))
                     testRew = testData[:,1]
-                    if np.any(np.isnan(testRew)):
-                        continue
 
                     N = 10
+
+                    if np.any(np.isnan(testRew)) or testRew.size <= N:
+                        continue
+
                     testRew_ = np.array([sum(testRew[i-N:i])/N for
                                          i in range(N, len(testRew))])
                     exps[exp] = [testRew_[-1], testRew_.sum()]
