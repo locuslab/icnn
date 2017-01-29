@@ -24,7 +24,7 @@ def main():
                                  'Walker2d', 'Ant', 'Humanoid', 'HumanoidStandup'],
                         help='(Every task is currently v1.)')
     parser.add_argument('--alg', type=str, choices=all_algs)
-    parser.add_argument('--nSamples', type=int, default=30)
+    parser.add_argument('--nSamples', type=int, default=40)
     parser.add_argument('--save', type=str)
     parser.add_argument('--overwrite', action='store_true')
 
@@ -80,8 +80,12 @@ def runExp(args, alg, algDir, expNum, hp_alg):
            '--outdir', expDir,
            '--total', str(hp['total']), '--train', str(hp['testInterval']),
            '--test', str(nTestEpisode), '--monitor', str(monitor),
-           '--tfseed', str(seed), '--gymseed', str(seed), '--npseed', str(seed),
-           '--ymin', str(hp['ymin']), '--ymax', str(hp['ymax'])]
+           '--tfseed', str(seed), '--gymseed', str(seed), '--npseed', str(seed)]
+
+    if 'ymin' in hp:
+        cmd += ['--ymin', str(hp['ymin'])]
+    if 'ymax' in hp:
+        cmd += ['--ymax', str(hp['ymax'])]
 
     for opt, val in hp_alg.items():
         cmd += ['--'+opt, str(val)]

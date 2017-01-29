@@ -107,7 +107,7 @@ class Experiment(object):
             print('Average train return {} after {} timestep of training.'.format(
                 avg_reward, self.train_timestep))
 
-            os.system('{} {} --ymin={} --ymax={}'.format(plotScr, FLAGS.outdir, FLAGS.ymin, FLAGS.ymax))
+            os.system('{} {}'.format(plotScr, FLAGS.outdir))
 
         self.env.monitor.close()
         os.makedirs(os.path.join(FLAGS.outdir, "tf"))
