@@ -55,7 +55,7 @@ def makeTable(args, tag, task_dfs):
 
             def getStr(val):
                 s = '{:.2f}'.format(val)
-                if (bestStat - val)/bestStat <= 0.01:
+                if (bestStat - val)/np.abs(bestStat) <= 0.01:
                     s = '*{}*'.format(s)
                 return s
 
