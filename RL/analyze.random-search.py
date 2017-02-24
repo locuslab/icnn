@@ -89,7 +89,7 @@ def analyzeTask(taskDir):
                     'exp': exp,
                     'maxTestRew': testRew.max(),
                     'finalTestRew': testRew[-1],
-                    'cumulativeTestRew': testRew[-1],
+                    'cumulativeTestRew': testRew.sum()
                 }
                 exps.append(d)
 
