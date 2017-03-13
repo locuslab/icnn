@@ -115,9 +115,8 @@ Each line is `[training_timesteps]	[testing_episode_total_reward]`.
 
 ### Settings
 
-To reproduce our experiments, run the bash scripts in the
-[RL/scripts](/RL/scripts/) directory.
-This will save output and create figures in `RL/output/*`..
+To reproduce our experiments, run the scripts in the
+[RL](/RL) directory.
 
 ### Acknowledgments
 The DDPG portions of our RL code are from
