@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import setGPU
+
 import tensorflow as tf
 import tflearn
 from tensorflow.python.ops import gen_nn_ops
