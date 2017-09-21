@@ -4,7 +4,7 @@ This repository is by [Brandon Amos](http://bamos.github.io),
 [Leonard Xu](https://github.com/Leonard-Xu),
 and [J. Zico Kolter](http://zicokolter.com)
 and contains the TensorFlow source code to reproduce the
-experiments in our paper
+experiments in our ICML 2017 paper
 [Input Convex Neural Networks](http://arxiv.org/abs/1609.07152).
 
 ![](/RL/misc/pendulum.gif)
@@ -16,11 +16,15 @@ If you find this repository helpful in your publications,
 please consider citing our paper.
 
 ```
-@article{amos2016input,
-  title={Input Convex Neural Networks},
-  author={Brandon Amos and Lei Xu and J. Zico Kolter},
-  journal={arXiv preprint arXiv:1609.07152},
-  year={2016}
+@InProceedings{amos2017icnn,
+  title = {Input Convex Neural Networks},
+  author = {Brandon Amos and Lei Xu and J. Zico Kolter},
+  booktitle = {Proceedings of the 34th International Conference on Machine Learning},
+  pages = {146--155},
+  year = {2017},
+  volume = {70},
+  series = {Proceedings of Machine Learning Research},
+  publisher = {PMLR},
 }
 ```
 
